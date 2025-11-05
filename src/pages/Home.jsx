@@ -7,7 +7,7 @@ import { getCurrentLocation } from '../utils/helpers';
 import LocationDisplay from '../components/shared/LocationDisplay';
 import './Home.css';
 
-// Helper component to programmatically change the map's view
+// (Helper components ChangeView and LocationMarker are unchanged)
 function ChangeView({ center, zoom }) {
   const map = useMap();
   useEffect(() => {
@@ -17,18 +17,14 @@ function ChangeView({ center, zoom }) {
   }, [center, zoom, map]);
   return null;
 }
-
-// Helper component to handle map clicks and display a movable marker
 function LocationMarker({ position, setPosition, accuracy }) {
   const markerRef = useRef(null);
   const map = useMapEvents({
     click(e) {
-      // When the map is clicked, update the location state
       setPosition({ latitude: e.latlng.lat, longitude: e.latlng.lng, accuracy });
       map.flyTo(e.latlng, map.getZoom());
     },
   });
-
   const eventHandlers = useMemo(
     () => ({
       dragend() {
@@ -41,17 +37,17 @@ function LocationMarker({ position, setPosition, accuracy }) {
     }),
     [setPosition, accuracy],
   );
-
   if (!position) {
     return null;
   }
-
   return (
     <Marker draggable={true} eventHandlers={eventHandlers} position={[position.latitude, position.longitude]} ref={markerRef}>
       <Popup>Drag me to the correct location</Popup>
     </Marker>
   );
 }
+// (End of helper components)
+
 
 const Home = () => {
   const [stream, setStream] = useState(null);
@@ -66,14 +62,12 @@ const Home = () => {
   const [isDragging, setIsDragging] = useState(false);
   const navigate = useNavigate();
 
-  // Effect to get access to the user's camera
   useEffect(() => {
     const getMedia = async () => {
-      // Only run if the camera is supposed to be active
       if (!isCameraActive) return;
       try {
         const mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' }, // Prefer the rear camera
+          video: { facingMode: 'environment' },
         });
         setStream(mediaStream);
         if (videoRef.current) {
@@ -84,10 +78,7 @@ const Home = () => {
         setError('Could not access the camera. Please check permissions and try again.');
       }
     };
-
     getMedia();
-
-    // Cleanup function to stop the video stream when the component unmounts
     return () => {
       stopStream();
     };
@@ -104,27 +95,24 @@ const Home = () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-
-      // Set canvas dimensions to match the video stream
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-
-      // Draw the current video frame onto the canvas
       const context = canvas.getContext('2d');
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // Get location while capturing the image
+      // (UPDATED) We now get accuracy from the location
+      setIsLoading(true);
       try {
-        setError(null); // Clear previous errors
+        setError(null);
         const coords = await getCurrentLocation();
         setLocation(coords);
       } catch (locationError) {
         console.error("Error getting location:", locationError);
-        setError("Could not get location. You can still proceed and add it manually later.");
+        setError("Could not get location. You can add it manually in the next step.");
         setLocation(null);
       }
+      setIsLoading(false);
 
-      // Get the image data from the canvas
       const imageDataUrl = canvas.toDataURL('image/jpeg');
       setCapturedImage(imageDataUrl);
       stopStream();
@@ -133,7 +121,6 @@ const Home = () => {
   };
 
   const handleUploadClick = () => {
-    // Trigger the hidden file input
     fileInputRef.current.click();
   };
 
@@ -143,7 +130,8 @@ const Home = () => {
         setError('Invalid file type. Please upload an image.');
         return;
       }
-      setError(null); // Clear previous errors
+      setError(null);
+      setIsLoading(true);
 
       const reader = new FileReader();
       reader.onloadend = async () => {
@@ -153,9 +141,10 @@ const Home = () => {
           setLocation(coords);
         } catch (locationError) {
           console.error("Error getting location:", locationError);
-          setError("Could not get location. You can still proceed and add it manually later.");
+          setError("Could not get location. You can add it manually in the next step.");
           setLocation(null);
         }
+        setIsLoading(false);
       };
       reader.readAsDataURL(file);
     }
@@ -167,23 +156,21 @@ const Home = () => {
     }
   };
 
+  // --- Drag and Drop Handlers ---
   const handleDragEnter = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
   };
-
   const handleDragLeave = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
   };
-
   const handleDragOver = (e) => {
     e.preventDefault();
-    e.stopPropagation(); // Necessary to allow for drop
+    e.stopPropagation();
   };
-
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -192,13 +179,13 @@ const Home = () => {
       processFile(e.dataTransfer.files[0]);
     }
   };
+  // --- End Drag and Drop ---
 
   const handleRetake = () => {
     setCapturedImage(null);
     setError(null);
     setLocation(null);
-    setIsCameraActive(false); // Go back to the initial choice screen
-    // Reset the file input so the user can upload the same file again
+    setIsCameraActive(false); 
     if (fileInputRef.current) {
       fileInputRef.current.value = null;
     }
@@ -206,11 +193,14 @@ const Home = () => {
 
   const handleConfirm = () => {
     if (!capturedImage) return;
+    // Pass the location (even if it's null) to the review page
     navigate('/report-review', { state: { image: capturedImage, location } });
   };
 
   return (
-    <div className="card home-page" style={{ maxWidth: '600px', margin: '2rem auto' }}>
+    // (FIX) We remove the <div className="card"> wrapper
+    // because the Layout component provides it now.
+    <div className="home-page"> 
       <div className="home-page__content-wrapper">
         {isLoading && <LoadingSpinner />}
 
@@ -237,7 +227,7 @@ const Home = () => {
         {isCameraActive && (
           <>
             <video ref={videoRef} autoPlay playsInline className="video-feed" />
-            <div className="capture-button-container" style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)' }}>
+            <div className="capture-button-container" style={{ position: 'relative', marginTop: '1rem' }}>
               <Button onClick={handleCapture} disabled={!stream}>Capture</Button>
             </div>
           </>
@@ -248,22 +238,36 @@ const Home = () => {
           <div className="preview-container">
             <h2>Preview</h2>
             <img src={capturedImage} alt="Captured pothole" className="preview-image" />
-            {location && (
-              <div className="location-preview" style={{ marginTop: '1rem' }}>
-                <p style={{ textAlign: 'center', fontStyle: 'italic', color: '#333' }}>
-                  Please confirm the location. You can drag the marker or click on the map to adjust.
+            
+            {/* Location Section */}
+            <div className="location-preview" style={{ marginTop: '1rem' }}>
+              {location ? (
+                <>
+                  <p style={{ textAlign: 'center', fontStyle: 'italic', color: '#333' }}>
+                    Drag the pin to confirm the location.
+                  </p>
+                  {/* (UPDATED) Pass accuracy to the display */}
+                  <LocationDisplay latitude={location.latitude} longitude={location.longitude} accuracy={location.accuracy} />
+                  <MapContainer center={[location.latitude, location.longitude]} zoom={16} scrollWheelZoom={false} className="map-container">
+                    <TileLayer
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                    <ChangeView center={[location.latitude, location.longitude]} zoom={16} />
+                    <LocationMarker position={location} setPosition={setLocation} accuracy={location.accuracy} />
+                  </MapContainer>
+                </>
+              ) : (
+                // This shows if location failed but image succeeded
+                <p className="error-text">
+                  {error || "Location not found. You can set it on the next page."}
                 </p>
-                <LocationDisplay latitude={location.latitude} longitude={location.longitude} accuracy={location.accuracy} />
-                <MapContainer center={[location.latitude, location.longitude]} zoom={16} scrollWheelZoom={false} className="map-container">
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  <ChangeView center={[location.latitude, location.longitude]} zoom={16} />
-                  <LocationMarker position={location} setPosition={setLocation} accuracy={location.accuracy} />
-                </MapContainer>
-              </div>
-            )}
-            {error && <p className="error-text">{error}</p>}
+              )}
+            </div>
+            
+            {/* Show general errors if they exist */}
+            {error && !location && <p className="error-text">{error}</p>}
+
+            {/* Actions Section */}
             <div className="actions">
               <Button onClick={handleConfirm}>Confirm</Button>
               <Button onClick={handleRetake} variant="secondary">Retake</Button>

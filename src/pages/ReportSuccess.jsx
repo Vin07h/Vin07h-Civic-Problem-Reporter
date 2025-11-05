@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import Button from '../components/shared/Button';
 import LocationDisplay from '../components/shared/LocationDisplay';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import LoadingSpinner from '../components/shared/LoadingSpinner'; // Import loader
 
 // Helper component to center the map
 function ChangeView({ center, zoom }) {
@@ -19,24 +20,23 @@ const ReportSuccess = () => {
   const navigate = useNavigate();
   const { state } = useLocation();
 
-  // (FIX) If the user refreshes this page, state will be lost.
-  // Redirect them to the home page so the app doesn't crash.
   useEffect(() => {
     if (!state) {
       navigate('/home');
     }
   }, [state, navigate]);
 
-  // If state is null, we're about to redirect
+  // If state is null, we're redirecting. Show a loader.
   if (!state) {
-    return null; 
+    return <LoadingSpinner />; 
   }
 
   const { report, location } = state;
   const mapPosition = [location.lat, location.lng];
 
   return (
-    <div className="success-page card" style={{ maxWidth: '600px', margin: '2rem auto', textAlign: 'left' }}>
+    // (FIX) We remove the <div className="card"> wrapper
+    <div className="success-page" style={{ textAlign: 'left' }}>
       <h2 style={{ textAlign: 'center' }}>✅ Report Submitted!</h2>
       <p style={{ textAlign: 'center' }}>
         Thank you! Your report has been successfully created.
@@ -57,10 +57,12 @@ const ReportSuccess = () => {
           {report.ward_name}
         </p>
         
+        {/* --- (THIS IS THE TYPO FIX) --- */}
         <p style={{ marginBottom: '1rem' }}>
           <strong>Full Address:</strong><br />
           {report.full_address}
         </p>
+        {/* --- (END OF TYPO FIX) --- */}
 
         <p><strong>Final Location:</strong></p>
         <LocationDisplay latitude={location.lat} longitude={location.lng} />

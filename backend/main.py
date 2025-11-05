@@ -17,9 +17,10 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from ultralytics import YOLO
 
-# --- 1. Load All API Keys and Configs ---
+# --- API Keys and Configs ---
 load_dotenv()
-GEOAPIFY_API_KEY = os.getenv("GEOAPIFY_API_KEY")
+
+GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 
 cloudinary.config(
     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
@@ -38,7 +39,7 @@ except Exception as e:
     print(f"Error connecting to MongoDB: {e}")
     mongo_client = None
 
-# --- 2. Pydantic Models ---
+# --- Pydantic Models ---
 class BoundingBox(BaseModel):
     x_min: float
     y_min: float
@@ -66,7 +67,7 @@ class FinalReportPayload(BaseModel):
     detections: list[BoundingBox]
 
 
-# --- 3. Computer Vision Inference Service ---
+# ---  Computer Vision Inference Service ---
 class CVInferenceService:
     def __init__(self):
         self.MODEL_PATH = os.path.join("model", "best.pt")
@@ -124,38 +125,51 @@ class CVInferenceService:
                     )
         return detected_potholes
 
-# --- 4. (UPDATED) Helper Function for Geocoding ---
+# --- Helper Function for Geocoding ---
 def get_ward_from_coords(lat: float, lon: float):
-    """Uses Geoapify to convert (lat, lon) into a ward name and full address."""
-    url = f"https://api.geoapify.com/v1/geocode/reverse?lat={lat}&lon={lon}&apiKey={GEOAPIFY_API_KEY}"
+    """Uses Google Maps API to convert (lat, lon) into a ward/district."""
+    
+    base_url = "https://maps.googleapis.com/maps/api/geocode/json"
+    params = {
+        "latlng": f"{lat},{lon}",
+        "key": GOOGLE_MAPS_API_KEY
+    }
+    
     try:
-        response = requests.get(url)
+        response = requests.get(base_url, params=params)
         data = response.json()
-        properties = data['features'][0]['properties']
         
-        # --- (THIS IS THE FIX FOR 'N/A') ---
-        # Try a list of keys in order of preference to find the ward name
-        ward_keys = ['suburb', 'neighbourhood', 'quarter', 'district', 'locality']
-        ward_name = 'N/A'
-        for key in ward_keys:
-            if properties.get(key):
-                ward_name = properties.get(key)
-                break  # Stop once we find a match
-        # --- (END OF FIX) ---
-                
-        full_address = properties.get('formatted', 'N/A')
-        return ward_name, full_address
+        if data['status'] != 'OK':
+            print(f"Google Geocoding Error: {data['status']}")
+            return "N/A", "N/A"
+
+        full_address = data['results'][0]['formatted_address']
+        
+        ward_name = "N/A"
+        district_name = "N/A"
+
+        for component in data['results'][0]['address_components']:
+            types = component['types']
+            if 'sublocality_level_1' in types:
+                ward_name = component['long_name']
+            if 'administrative_area_level_3' in types:
+                district_name = component['long_name']
+        
+        final_admin_name = ward_name if ward_name != 'N/A' else district_name
+        
+        return final_admin_name, full_address
+
     except Exception as e:
-        print(f"Geocoding error: {e}")
+        print(f"Geocoding request error: {e}")
         return "N/A", "N/A"
 
 
-# --- 5. FastAPI Application Setup ---
+# --- FastAPI Application Setup ---
 app = FastAPI()
 cv_service = CVInferenceService() 
 
 origins = [
-    "http://localhost:5173", # Default Vite port
+    "http://localhost:5173", 
     "http://127.0.0.1:5173",
     "http://localhost:5173",
     "http://localhost:5174"
@@ -168,7 +182,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- 6. API Endpoints ---
+# --- API Endpoints ---
 
 @app.get("/")
 def read_root():
@@ -209,10 +223,8 @@ async def submit_report(payload: FinalReportPayload):
     lat = payload.location.get('lat')
     lon = payload.location.get('lng')
 
-    # 1. Get Ward Name from Geoapify
     ward_name, full_address = get_ward_from_coords(lat, lon)
 
-    # 2. Upload Image to Cloudinary
     try:
         upload_result = cloudinary.uploader.upload(
             payload.image,
@@ -222,7 +234,6 @@ async def submit_report(payload: FinalReportPayload):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image upload error: {str(e)}")
 
-    # 3. Save the final report to MongoDB
     try:
         report_document = {
             "problem_type": "pothole",
@@ -240,8 +251,6 @@ async def submit_report(payload: FinalReportPayload):
         
         insert_result = problems_collection.insert_one(report_document)
         
-        # --- (UPDATED RESPONSE) ---
-        # Return all the data our new success page will need
         return {
             "message": "Report submitted successfully!",
             "report_id": str(insert_result.inserted_id),
@@ -249,7 +258,6 @@ async def submit_report(payload: FinalReportPayload):
             "full_address": full_address,
             "image_url": image_url
         }
-        # --- (END OF UPDATED RESPONSE) ---
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
