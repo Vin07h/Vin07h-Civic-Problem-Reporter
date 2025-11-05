@@ -100,7 +100,6 @@ const Home = () => {
       const context = canvas.getContext('2d');
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // (UPDATED) We now get accuracy from the location
       setIsLoading(true);
       try {
         setError(null);
@@ -193,13 +192,11 @@ const Home = () => {
 
   const handleConfirm = () => {
     if (!capturedImage) return;
-    // Pass the location (even if it's null) to the review page
     navigate('/report-review', { state: { image: capturedImage, location } });
   };
 
   return (
     // (FIX) We remove the <div className="card"> wrapper
-    // because the Layout component provides it now.
     <div className="home-page"> 
       <div className="home-page__content-wrapper">
         {isLoading && <LoadingSpinner />}
@@ -239,14 +236,12 @@ const Home = () => {
             <h2>Preview</h2>
             <img src={capturedImage} alt="Captured pothole" className="preview-image" />
             
-            {/* Location Section */}
             <div className="location-preview" style={{ marginTop: '1rem' }}>
               {location ? (
                 <>
                   <p style={{ textAlign: 'center', fontStyle: 'italic', color: '#333' }}>
                     Drag the pin to confirm the location.
                   </p>
-                  {/* (UPDATED) Pass accuracy to the display */}
                   <LocationDisplay latitude={location.latitude} longitude={location.longitude} accuracy={location.accuracy} />
                   <MapContainer center={[location.latitude, location.longitude]} zoom={16} scrollWheelZoom={false} className="map-container">
                     <TileLayer
@@ -257,17 +252,14 @@ const Home = () => {
                   </MapContainer>
                 </>
               ) : (
-                // This shows if location failed but image succeeded
                 <p className="error-text">
                   {error || "Location not found. You can set it on the next page."}
                 </p>
               )}
             </div>
             
-            {/* Show general errors if they exist */}
             {error && !location && <p className="error-text">{error}</p>}
 
-            {/* Actions Section */}
             <div className="actions">
               <Button onClick={handleConfirm}>Confirm</Button>
               <Button onClick={handleRetake} variant="secondary">Retake</Button>

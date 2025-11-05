@@ -8,7 +8,8 @@ import ReportSuccess from './pages/ReportSuccess';
 
 function App() {
   return (
-    // All routes are now children of the main Layout
+    // All routes are now children of the main Layout.
+    // This removes the old, conflicting header.
     <Layout>
       <Routes>
         <Route path="/" element={<Onboarding />} />

@@ -52,6 +52,7 @@ function LocationMarker({ position, setPosition }) {
     </Marker>
   );
 }
+// (End of helper components)
 
 
 const ReportReview = () => {
@@ -65,8 +66,6 @@ const ReportReview = () => {
   const [error, setError] = useState(null);
   const [apiResult, setApiResult] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // (REMOVED) We no longer need this state
-  // const [submitMessage, setSubmitMessage] = useState(null);
 
   const getLeafletCompatibleLocation = (loc) => {
     if (!loc) return null;
@@ -112,7 +111,6 @@ const ReportReview = () => {
   }, [imageRef, manualLocation, apiResult]); 
 
   
-  // --- (THIS FUNCTION IS UPDATED) ---
   const handleFinalSubmit = async () => {
     if (!apiResult || !manualLocation) {
       setError("Cannot submit: Location is missing.");
@@ -126,37 +124,29 @@ const ReportReview = () => {
     setError(null);
 
     try {
-      // The backend now returns the full report details
       const result = await submitFinalReport(imageRef.current, manualLocation, apiResult.detections);
       
-      // --- (THIS IS THE CHANGE) ---
-      // Navigate to the new success page and pass the report data
       navigate('/success', { 
         state: {
-          report: result.data, // This contains ward_name, image_url, etc.
-          location: manualLocation // This contains lat, lng
+          report: result.data, 
+          location: manualLocation
         } 
       });
-      // --- (END OF CHANGE) ---
 
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to submit the report.");
       setIsSubmitting(false);
     }
   };
-  // --- (END OF UPDATED FUNCTION) ---
 
   if (!imageRef.current) {
-    return (
-      <div className="card" style={{ maxWidth: '600px', margin: '2rem auto' }}>
-        <LoadingSpinner />
-      </div>
-    );
+    return <LoadingSpinner />; // Show loader while redirecting
   }
 
   const initialPosition = manualLocation ? [manualLocation.lat, manualLocation.lng] : [12.9716, 77.5946]; 
 
   return (
+    // (FIX) We remove the <div className="card"> wrapper
     <div className="report-review-page">
       {(isLoading || isSubmitting) && (
         <div className="spinner-overlay" style={{ borderRadius: 0 }}>
@@ -194,13 +184,11 @@ const ReportReview = () => {
       {manualLocation && <LocationDisplay latitude={manualLocation.lat} longitude={manualLocation.lng} accuracy={manualLocation.accuracy} />}
       
       {error && <p className="error-text">{error}</p>}
-      
-      {/* We no longer need the submitMessage here */}
 
       <div className="actions" style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center', gap: '1rem' }}>
         <Button 
           onClick={handleFinalSubmit} 
-          disabled={!apiResult || isSubmitting} // Simplified disabled logic
+          disabled={!apiResult || isSubmitting}
         >
           {isSubmitting ? "Submitting..." : "Submit Report"}
         </Button>

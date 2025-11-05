@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import Button from '../components/shared/Button';
 import LocationDisplay from '../components/shared/LocationDisplay';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import LoadingSpinner from '../components/shared/LoadingSpinner'; // Import loader
+import LoadingSpinner from '../components/shared/LoadingSpinner';
 
 // Helper component to center the map
 function ChangeView({ center, zoom }) {
@@ -26,7 +26,6 @@ const ReportSuccess = () => {
     }
   }, [state, navigate]);
 
-  // If state is null, we're redirecting. Show a loader.
   if (!state) {
     return <LoadingSpinner />; 
   }
@@ -35,8 +34,7 @@ const ReportSuccess = () => {
   const mapPosition = [location.lat, location.lng];
 
   return (
-    // (FIX) We remove the <div className="card"> wrapper
-    <div className="success-page" style={{ textAlign: 'left' }}>
+    <div style={{ textAlign: 'left' }}>
       <h2 style={{ textAlign: 'center' }}>✅ Report Submitted!</h2>
       <p style={{ textAlign: 'center' }}>
         Thank you! Your report has been successfully created.
@@ -57,12 +55,10 @@ const ReportSuccess = () => {
           {report.ward_name}
         </p>
         
-        {/* --- (THIS IS THE TYPO FIX) --- */}
         <p style={{ marginBottom: '1rem' }}>
           <strong>Full Address:</strong><br />
           {report.full_address}
         </p>
-        {/* --- (END OF TYPO FIX) --- */}
 
         <p><strong>Final Location:</strong></p>
         <LocationDisplay latitude={location.lat} longitude={location.lng} />
