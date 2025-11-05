@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+// Use the environment variable, with a fallback
+const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8000',
+  baseURL: baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -14,12 +17,10 @@ const apiClient = axios.create({
  * @returns {Promise<any>} A promise that resolves with the API response.
  */
 export const sendImageForDetection = (imageBase64, location) => {
-  // This payload sends the *compressed* string for *detection*
   const payload = { image: imageBase64, latitude: location.lat, longitude: location.lng };
   return apiClient.post('/vision/detect', payload);
 };
 
-// --- (NEW FUNCTION) ---
 /**
  * Submits the final confirmed report to the backend.
  * @param {string} fullImageDataUrl The *original* (uncompressed) base64 data URL.
@@ -29,7 +30,7 @@ export const sendImageForDetection = (imageBase64, location) => {
  */
 export const submitFinalReport = (fullImageDataUrl, location, detections) => {
   const payload = {
-    image: fullImageDataUrl, // Send the full, original image for storage
+    image: fullImageDataUrl,
     location: location,
     detections: detections,
   };

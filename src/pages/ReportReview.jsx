@@ -1,12 +1,14 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap, Popup } from 'react-leaflet';
 import Button from '../components/shared/Button';
 import LocationDisplay from '../components/shared/LocationDisplay';
 import { compressImage } from '../utils/helpers';
 import { sendImageForDetection, submitFinalReport } from '../services/apiService';
 import DetectionViewer from '../components/shared/DetectionViewer';
+import LoadingSpinner from '../components/shared/LoadingSpinner';
 
+// (Helper components ChangeView and LocationMarker are unchanged)
 function ChangeView({ center, zoom }) {
   const map = useMap();
   useEffect(() => {
@@ -17,40 +19,76 @@ function ChangeView({ center, zoom }) {
   return null;
 }
 function LocationMarker({ position, setPosition }) {
+  const markerRef = useRef(null);
   const map = useMapEvents({
     click(e) {
-      setPosition(e.latlng);
+      setPosition({ lat: e.latlng.lat, lng: e.latlng.lng, accuracy: null });
       map.flyTo(e.latlng, map.getZoom());
     },
   });
+  const eventHandlers = useMemo(
+    () => ({
+      dragend() {
+        const marker = markerRef.current;
+        if (marker != null) {
+          const { lat, lng } = marker.getLatLng();
+          setPosition({ lat, lng, accuracy: position?.accuracy || null });
+        }
+      },
+    }),
+    [position, setPosition],
+  );
   if (!position) {
     return null;
   }
-  return <Marker position={[position.lat, position.lng]}></Marker>;
+  return (
+    <Marker
+      draggable={true}
+      eventHandlers={eventHandlers}
+      position={[position.lat, position.lng]}
+      ref={markerRef}
+    >
+      <Popup>Drag me to the exact spot</Popup>
+    </Marker>
+  );
 }
 
 
 const ReportReview = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { image, location: reportLocation } = location.state || {};
+  
+  const imageRef = useRef(location.state?.image);
+  const locationRef = useRef(location.state?.location);
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [apiResult, setApiResult] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitMessage, setSubmitMessage] = useState(null);
+  // (REMOVED) We no longer need this state
+  // const [submitMessage, setSubmitMessage] = useState(null);
 
   const getLeafletCompatibleLocation = (loc) => {
     if (!loc) return null;
-    return { lat: loc.latitude || loc.lat, lng: loc.longitude || loc.lng };
+    return { 
+      lat: loc.latitude || loc.lat, 
+      lng: loc.longitude || loc.lng,
+      accuracy: loc.accuracy
+    };
   };
 
-  const [manualLocation, setManualLocation] = useState(getLeafletCompatibleLocation(reportLocation));
+  const [manualLocation, setManualLocation] = useState(getLeafletCompatibleLocation(locationRef.current));
+
+  useEffect(() => {
+    if (!imageRef.current) {
+      navigate('/home');
+    }
+  }, [navigate]);
 
   useEffect(() => {
     const runDetection = async () => {
-      if (!image || !manualLocation) {
-        if (!reportLocation) {
+      if (!imageRef.current || !manualLocation) {
+        if (!locationRef.current) {
           setError("Please select a location on the map to begin analysis.");
         }
         return;
@@ -60,7 +98,7 @@ const ReportReview = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const compressed = await compressImage(image, 800, 0.7);
+        const compressed = await compressImage(imageRef.current, 800, 0.7);
         const result = await sendImageForDetection(compressed, manualLocation);
         setApiResult(result.data);
       } catch (err) {
@@ -70,53 +108,56 @@ const ReportReview = () => {
         setIsLoading(false);
       }
     };
-
     runDetection();
-  }, [image, manualLocation, apiResult]); 
+  }, [imageRef, manualLocation, apiResult]); 
 
-  if (!image) {
-    return (
-      <div className="card" style={{ maxWidth: '600px', margin: '2rem auto' }}>
-        <p>No image to review. Please start over.</p>
-        <Button onClick={() => navigate('/home')}>Go Back</Button>
-      </div>
-    );
-  }
-
+  
   // --- (THIS FUNCTION IS UPDATED) ---
   const handleFinalSubmit = async () => {
-    if (!apiResult || !apiResult.pothole_detected || !manualLocation) {
-      setError("Cannot submit: No pothole detected or location is missing.");
+    if (!apiResult || !manualLocation) {
+      setError("Cannot submit: Location is missing.");
       return;
+    }
+    if (!apiResult.pothole_detected) {
+      console.log("Submitting as a manual report (no AI detection).")
     }
 
     setIsSubmitting(true);
     setError(null);
-    setSubmitMessage(null);
 
     try {
-      const result = await submitFinalReport(image, manualLocation, apiResult.detections);
+      // The backend now returns the full report details
+      const result = await submitFinalReport(imageRef.current, manualLocation, apiResult.detections);
       
-      // Read the ward_name from the response
-      const wardName = result.data.ward_name || "your area";
-      setSubmitMessage(`Success! Report for ward '${wardName}' has been submitted.`);
-      
-      // Wait 3 seconds, then navigate home
-      setTimeout(() => {
-        navigate('/');
-      }, 3000);
+      // --- (THIS IS THE CHANGE) ---
+      // Navigate to the new success page and pass the report data
+      navigate('/success', { 
+        state: {
+          report: result.data, // This contains ward_name, image_url, etc.
+          location: manualLocation // This contains lat, lng
+        } 
+      });
+      // --- (END OF CHANGE) ---
 
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to submit the report.");
       setIsSubmitting(false);
     }
   };
+  // --- (END OF UPDATED FUNCTION) ---
 
+  if (!imageRef.current) {
+    return (
+      <div className="card" style={{ maxWidth: '600px', margin: '2rem auto' }}>
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
-  const initialPosition = manualLocation ? [manualLocation.lat, manualLocation.lng] : [12.9716, 77.5946];
+  const initialPosition = manualLocation ? [manualLocation.lat, manualLocation.lng] : [12.9716, 77.5946]; 
 
   return (
-    <div className="card report-review-page" style={{ maxWidth: '600px', margin: '2rem auto' }}>
+    <div className="report-review-page">
       {(isLoading || isSubmitting) && (
         <div className="spinner-overlay" style={{ borderRadius: 0 }}>
           <div className="spinner" />
@@ -124,7 +165,10 @@ const ReportReview = () => {
       )}
       
       <h2>Review Your Report</h2>
-      <DetectionViewer imageDataUrl={image} detections={apiResult ? apiResult.detections : []} />
+      <p style={{textAlign: 'center', fontStyle: 'italic', color: '#333', marginTop: 0}}>
+        Drag the pin to the exact location.
+      </p>
+      <DetectionViewer imageDataUrl={imageRef.current} detections={apiResult ? apiResult.detections : []} />
 
       {apiResult ? (
         <div className="submission-result" style={{ marginTop: '1rem' }}>
@@ -147,18 +191,26 @@ const ReportReview = () => {
         <LocationMarker position={manualLocation} setPosition={setManualLocation} />
       </MapContainer>
 
-      {manualLocation && <LocationDisplay latitude={manualLocation.lat} longitude={manualLocation.lng} />}
+      {manualLocation && <LocationDisplay latitude={manualLocation.lat} longitude={manualLocation.lng} accuracy={manualLocation.accuracy} />}
       
       {error && <p className="error-text">{error}</p>}
       
-      {submitMessage && <p style={{ color: 'green', fontWeight: 'bold' }}>{submitMessage}</p>}
+      {/* We no longer need the submitMessage here */}
 
-      <div className="submit-action" style={{ marginTop: '1rem' }}>
+      <div className="actions" style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center', gap: '1rem' }}>
         <Button 
           onClick={handleFinalSubmit} 
-          disabled={!apiResult || !apiResult.pothole_detected || isSubmitting || submitMessage}
+          disabled={!apiResult || isSubmitting} // Simplified disabled logic
         >
-          {isSubmitting ? "Submitting..." : "Submit Final Report"}
+          {isSubmitting ? "Submitting..." : "Submit Report"}
+        </Button>
+
+        <Button 
+          onClick={() => navigate('/home')} 
+          variant="secondary"
+          disabled={isSubmitting}
+        >
+          Cancel
         </Button>
       </div>
     </div>
