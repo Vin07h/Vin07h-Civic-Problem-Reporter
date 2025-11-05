@@ -4,10 +4,9 @@ import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-lea
 import Button from '../components/shared/Button';
 import LocationDisplay from '../components/shared/LocationDisplay';
 import { compressImage } from '../utils/helpers';
-import { sendImageForDetection } from '../services/apiService';
+import { sendImageForDetection, submitFinalReport } from '../services/apiService';
 import DetectionViewer from '../components/shared/DetectionViewer';
 
-// Helper component to programmatically change the map's view
 function ChangeView({ center, zoom }) {
   const map = useMap();
   useEffect(() => {
@@ -17,8 +16,6 @@ function ChangeView({ center, zoom }) {
   }, [center, zoom, map]);
   return null;
 }
-
-// Helper component to handle map clicks and display a movable marker
 function LocationMarker({ position, setPosition }) {
   const map = useMapEvents({
     click(e) {
@@ -26,13 +23,12 @@ function LocationMarker({ position, setPosition }) {
       map.flyTo(e.latlng, map.getZoom());
     },
   });
-
   if (!position) {
     return null;
   }
-
   return <Marker position={[position.lat, position.lng]}></Marker>;
 }
+
 
 const ReportReview = () => {
   const location = useLocation();
@@ -41,26 +37,25 @@ const ReportReview = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [apiResult, setApiResult] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState(null);
 
-  // Helper to ensure location object is in the {lat, lng} format Leaflet expects
   const getLeafletCompatibleLocation = (loc) => {
     if (!loc) return null;
-    // It might already be in {lat, lng} format from a map click, or {latitude, longitude} from props
     return { lat: loc.latitude || loc.lat, lng: loc.longitude || loc.lng };
   };
 
   const [manualLocation, setManualLocation] = useState(getLeafletCompatibleLocation(reportLocation));
 
-  // Automatically run detection when the component mounts
   useEffect(() => {
     const runDetection = async () => {
-      // Don't run if we don't have an image or a location
       if (!image || !manualLocation) {
         if (!reportLocation) {
           setError("Please select a location on the map to begin analysis.");
         }
         return;
       }
+      if(apiResult) return;
 
       setIsLoading(true);
       setError(null);
@@ -77,7 +72,7 @@ const ReportReview = () => {
     };
 
     runDetection();
-  }, [image, manualLocation]);
+  }, [image, manualLocation, apiResult]); 
 
   if (!image) {
     return (
@@ -88,28 +83,57 @@ const ReportReview = () => {
     );
   }
 
-  const handleFinalSubmit = () => {
-    // Here you would send the final, confirmed report to another backend endpoint
-    alert("Report has been submitted! (Simulation)");
-    navigate('/');
+  // --- (THIS FUNCTION IS UPDATED) ---
+  const handleFinalSubmit = async () => {
+    if (!apiResult || !apiResult.pothole_detected || !manualLocation) {
+      setError("Cannot submit: No pothole detected or location is missing.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+    setSubmitMessage(null);
+
+    try {
+      const result = await submitFinalReport(image, manualLocation, apiResult.detections);
+      
+      // Read the ward_name from the response
+      const wardName = result.data.ward_name || "your area";
+      setSubmitMessage(`Success! Report for ward '${wardName}' has been submitted.`);
+      
+      // Wait 3 seconds, then navigate home
+      setTimeout(() => {
+        navigate('/');
+      }, 3000);
+
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to submit the report.");
+      setIsSubmitting(false);
+    }
   };
 
-  const initialPosition = manualLocation ? [manualLocation.lat, manualLocation.lng] : [12.9716, 77.5946]; // Default to Bangalore
+
+  const initialPosition = manualLocation ? [manualLocation.lat, manualLocation.lng] : [12.9716, 77.5946];
 
   return (
     <div className="card report-review-page" style={{ maxWidth: '600px', margin: '2rem auto' }}>
-      {isLoading && <div className="spinner-overlay" style={{ borderRadius: 0 }}><div className="spinner" /></div>}
+      {(isLoading || isSubmitting) && (
+        <div className="spinner-overlay" style={{ borderRadius: 0 }}>
+          <div className="spinner" />
+        </div>
+      )}
+      
       <h2>Review Your Report</h2>
       <DetectionViewer imageDataUrl={image} detections={apiResult ? apiResult.detections : []} />
 
       {apiResult ? (
-        <div className="submission-result">
-          <h3>Submission Result</h3>
+        <div className="submission-result" style={{ marginTop: '1rem' }}>
           <p>{apiResult.message}</p>
-          <Button onClick={handleFinalSubmit}>Done</Button>
         </div>
       ) : (
-      <>
+         <p style={{ marginTop: '1rem' }}>Analyzing image for potholes...</p>
+      )}
+
       {!manualLocation && (
         <p className="map-prompt">Please click on the map to pinpoint the pothole's location.</p>
       )}
@@ -124,13 +148,19 @@ const ReportReview = () => {
       </MapContainer>
 
       {manualLocation && <LocationDisplay latitude={manualLocation.lat} longitude={manualLocation.lng} />}
+      
       {error && <p className="error-text">{error}</p>}
+      
+      {submitMessage && <p style={{ color: 'green', fontWeight: 'bold' }}>{submitMessage}</p>}
 
-      <div className="submit-action">
-        <Button onClick={handleFinalSubmit} disabled={!apiResult || !apiResult.pothole_detected}>Submit Final Report</Button>
+      <div className="submit-action" style={{ marginTop: '1rem' }}>
+        <Button 
+          onClick={handleFinalSubmit} 
+          disabled={!apiResult || !apiResult.pothole_detected || isSubmitting || submitMessage}
+        >
+          {isSubmitting ? "Submitting..." : "Submit Final Report"}
+        </Button>
       </div>
-      </>
-      )}
     </div>
   );
 };
