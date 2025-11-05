@@ -1,0 +1,30 @@
+// Path: src/styles/pages/_report-review.scss
+@use 'variables' as *;
+
+.report-review-page {
+  .map-prompt {
+    margin-top: $spacing-md;
+  }
+
+  .map-container {
+    height: 300px;
+    margin-top: $spacing-md;
+    border-radius: $border-radius;
+  }
+
+  .result-message {
+    margin-top: $spacing-md;
+    font-weight: $font-weight-bold;
+  }
+
+  .submission-result {
+    margin-top: $spacing-md;
+    padding: $spacing-md;
+    border: 1px solid $color-border;
+    border-radius: $border-radius;
+  }
+
+  .submit-action {
+    margin-top: $spacing-md;
+  }
+}

@@ -1,0 +1,48 @@
+// Path: src/styles/pages/_home.scss
+@use 'variables' as *;
+
+.home-page {
+  &__content-wrapper {
+    position: relative;
+  }
+
+  .initial-choice {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $spacing-md;
+    padding: $spacing-lg 0;
+  }
+
+  .preview-container {
+    h2 {
+      margin-top: 0;
+    }
+    .preview-image {
+      width: 100%;
+      border-radius: $border-radius;
+      display: block;
+    }
+    .location-preview {
+      margin-top: $spacing-md;
+    }
+    .map-container {
+      height: 250px;
+      margin-top: $spacing-md;
+      border-radius: $border-radius;
+    }
+    .actions {
+      margin-top: $spacing-md;
+      display: flex;
+      justify-content: center;
+      gap: $spacing-md;
+    }
+  }
+
+  .video-feed {
+    width: 100%;
+    border-radius: $border-radius;
+    background-color: #000;
+    display: block;
+  }
+}

@@ -1,0 +1,25 @@
+// Path: src/styles/_variables.scss
+
+// Colors
+$color-primary: #005A9C; // A professional, trustworthy blue
+$color-secondary: #2E8540; // A friendly green for success/accent
+$color-text-primary: #212529; // Darker text for headings
+$color-text-secondary: #495057; // Lighter text for paragraphs
+$color-background: #F8F9FA; // Light gray background
+$color-surface: #FFFFFF; // White for cards and surfaces
+$color-border: #DEE2E6; // Light gray for borders
+$color-danger: #DC3545; // Red for errors
+
+// Typography
+$font-family-sans: 'Inter', sans-serif; // Or another modern sans-serif
+$font-size-base: 16px;
+$font-weight-normal: 400;
+$font-weight-bold: 700;
+
+// Spacing
+$spacing-md: 1rem; // 16px
+$spacing-lg: 2rem; // 32px
+
+// Layout
+$border-radius: 8px;
+$box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);

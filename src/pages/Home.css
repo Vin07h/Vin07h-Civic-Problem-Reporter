@@ -1,0 +1,5 @@
+.initial-choice.dragging-over {
+  border: 2px dashed #007bff;
+  background-color: #f0f8ff;
+  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}

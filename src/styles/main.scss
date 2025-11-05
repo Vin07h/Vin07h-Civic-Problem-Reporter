@@ -1,0 +1,45 @@
+@use 'variables' as *;
+@use 'base/typography';
+@use 'components/buttons';
+@use 'components/spinner';
+@use 'home';
+@use 'report-review';
+
+// Global body styles
+body {
+    font-family: $font-family-sans;
+    background-color: $color-background;
+    color: $color-text-secondary;
+    margin: 0;
+    line-height: 1.5;
+    box-sizing: border-box;
+}
+
+h1, h2, h3 {
+    color: $color-text-primary;
+    font-weight: $font-weight-bold;
+}
+
+.app-container {
+    padding: $spacing-md;
+}
+
+.app-header {
+    text-align: center;
+    margin-bottom: $spacing-lg;
+}
+
+// A general-purpose card style for consistent UI
+.card {
+    background-color: $color-surface;
+    border-radius: $border-radius;
+    box-shadow: $box-shadow;
+    padding: $spacing-lg;
+    text-align: center;
+}
+
+.error-text {
+    color: $color-danger;
+    font-size: 0.9rem;
+    margin-top: $spacing-md;
+}
