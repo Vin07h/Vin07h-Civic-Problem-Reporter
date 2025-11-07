@@ -13,6 +13,29 @@
     gap: $spacing-md;
     padding: $spacing-lg 0;
   }
+  
+  // --- UI IMPROVEMENT ---
+  // Styles the dropzone to look more like a dropzone
+  .initial-choice--dropzone {
+    border: 2px dashed $color-border;
+    border-radius: $border-radius;
+    padding: $spacing-lg;
+    background-color: #fafafa; // Slightly off-white
+    transition: background-color 0.2s ease;
+    
+    p {
+      margin-top: 0;
+      color: $color-text-secondary;
+      font-weight: 500;
+    }
+
+    // This is your existing style for when dragging is active
+    &.dragging-over {
+      background-color: rgba($color-primary, 0.05);
+      border-color: $color-primary;
+    }
+  }
+  // --- END IMPROVEMENT ---
 
   .preview-container {
     h2 {

@@ -15,8 +15,8 @@ export const getCurrentLocation = () => {
             },
             (error) => {
                 // Error code 1: Permission denied
-                const message = error.code === 1 
-                    ? "Permission to access location was denied." 
+                const message = error.code === 1
+                    ? "Permission to access location was denied."
                     : error.message || "Failed to get location.";
                 reject(new Error(message));
             },
@@ -52,11 +52,12 @@ export const compressImage = (dataUrl, maxWidth, quality) => {
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
 
-            // Convert to JPEG with specified quality, which often reduces file size significantly
+            // Convert to JPEG with specified quality
             const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-            
-            // NOTE: We only want the base64 string part to send to FastAPI
-            resolve(compressedDataUrl.split(',')[1]); 
+
+            // Resolve with the *full* data URL (including prefix)
+            // The backend is already built to handle this.
+            resolve(compressedDataUrl);
         };
         img.src = dataUrl;
     });

@@ -10,3 +10,4 @@ requests
 pymongo
 cloudinary
 python-dotenv
+httpx

@@ -27,7 +27,7 @@ const ReportSuccess = () => {
   }, [state, navigate]);
 
   if (!state) {
-    return <LoadingSpinner />; 
+    return <LoadingSpinner />;
   }
 
   const { report, location } = state;
@@ -42,26 +42,29 @@ const ReportSuccess = () => {
 
       <div className="success-page__details">
         <img src={report.image_url} alt="Submitted pothole" style={{ width: '100%', borderRadius: '8px', marginBottom: '1rem' }} />
-        
-        <h3>Report Details:</h3>
-        
-        <p style={{ marginBottom: '1rem' }}>
-          <strong>Report ID:</strong><br />
-          <span style={{ fontSize: '0.9rem', color: '#555' }}>{report.report_id}</span>
-        </p>
-        
-        <p style={{ marginBottom: '1rem' }}>
-          <strong>Ward / Area:</strong><br />
-          {report.ward_name}
-        </p>
-        
-        <p style={{ marginBottom: '1rem' }}>
-          <strong>Full Address:</strong><br />
-          {report.full_address}
-        </p>
 
-        <p><strong>Final Location:</strong></p>
-        <LocationDisplay latitude={location.lat} longitude={location.lng} />
+        <h3>Report Details:</h3>
+
+        {/* --- UI IMPROVEMENT --- */}
+        <ul style={{ listStyleType: 'none', padding: 0, margin: 0 }}>
+          <li style={{ marginBottom: '0.75rem' }}>
+            <strong>Report ID:</strong><br />
+            <span style={{ fontSize: '0.9rem', color: '#555', wordBreak: 'break-all' }}>{report.report_id}</span>
+          </li>
+          <li style={{ marginBottom: '0.75rem' }}>
+            <strong>Ward / Area:</strong><br />
+            <span>{report.ward_name}</span>
+          </li>
+          <li style={{ marginBottom: '0.75rem' }}>
+            <strong>Full Address:</strong><br />
+            <span>{report.full_address}</span>
+          </li>
+          <li>
+            <strong>Final Location:</strong>
+            <LocationDisplay latitude={location.lat} longitude={location.lng} />
+          </li>
+        </ul>
+        {/* --- END IMPROVEMENT --- */}
 
         <MapContainer center={mapPosition} zoom={16} scrollWheelZoom={false} className="map-container" style={{ height: '200px', marginTop: '1rem' }}>
           <TileLayer
@@ -75,8 +78,8 @@ const ReportSuccess = () => {
         </MapContainer>
       </div>
 
-      <Button 
-        onClick={() => navigate('/home')} 
+      <Button
+        onClick={() => navigate('/home')}
         style={{ width: '100%', marginTop: '2rem' }}
       >
         Report Another Pothole

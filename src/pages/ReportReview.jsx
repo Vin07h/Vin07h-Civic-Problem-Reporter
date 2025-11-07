@@ -58,9 +58,11 @@ function LocationMarker({ position, setPosition }) {
 const ReportReview = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  
-  const imageRef = useRef(location.state?.image);
-  const locationRef = useRef(location.state?.location);
+
+  const initialData = location.state || JSON.parse(sessionStorage.getItem('reportData'));
+
+  const imageRef = useRef(initialData?.image);
+  const locationRef = useRef(initialData?.location);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -69,8 +71,8 @@ const ReportReview = () => {
 
   const getLeafletCompatibleLocation = (loc) => {
     if (!loc) return null;
-    return { 
-      lat: loc.latitude || loc.lat, 
+    return {
+      lat: loc.latitude || loc.lat,
       lng: loc.longitude || loc.lng,
       accuracy: loc.accuracy
     };
@@ -92,7 +94,8 @@ const ReportReview = () => {
         }
         return;
       }
-      if(apiResult) return;
+      // Do not run if we already have a result or an error
+      if(apiResult || error) return; 
 
       setIsLoading(true);
       setError(null);
@@ -108,9 +111,9 @@ const ReportReview = () => {
       }
     };
     runDetection();
-  }, [imageRef, manualLocation, apiResult]); 
+  }, [imageRef, manualLocation, apiResult, error]); // Add error to dependency array
 
-  
+
   const handleFinalSubmit = async () => {
     if (!apiResult || !manualLocation) {
       setError("Cannot submit: Location is missing.");
@@ -124,13 +127,21 @@ const ReportReview = () => {
     setError(null);
 
     try {
-      const result = await submitFinalReport(imageRef.current, manualLocation, apiResult.detections);
+      // --- OPTIMIZATION ---
+      // Compress the image before final submission
+      const compressedImage = await compressImage(imageRef.current, 1080, 0.8);
       
-      navigate('/success', { 
+      // Submit the compressed image
+      const result = await submitFinalReport(compressedImage, manualLocation, apiResult.detections);
+      // --- END OPTIMIZATION ---
+
+      sessionStorage.removeItem('reportData');
+
+      navigate('/success', {
         state: {
-          report: result.data, 
+          report: result.data,
           location: manualLocation
-        } 
+        }
       });
 
     } catch (err) {
@@ -138,33 +149,48 @@ const ReportReview = () => {
       setIsSubmitting(false);
     }
   };
+  
+  const handleCancel = () => {
+    sessionStorage.removeItem('reportData');
+    navigate('/home');
+  };
+  
+  // --- USER FLOW FIX ---
+  // Resets state to re-trigger the analysis
+  const handleRetryAnalysis = () => {
+    setError(null);
+    setApiResult(null);
+    // The useEffect will pick up this change and re-run
+  };
+  // --- END FIX ---
 
   if (!imageRef.current) {
-    return <LoadingSpinner />; // Show loader while redirecting
+    return <LoadingSpinner />;
   }
 
-  const initialPosition = manualLocation ? [manualLocation.lat, manualLocation.lng] : [12.9716, 77.5946]; 
+  const initialPosition = manualLocation ? [manualLocation.lat, manualLocation.lng] : [12.9716, 77.5946];
 
   return (
-    // (FIX) We remove the <div className="card"> wrapper
     <div className="report-review-page">
       {(isLoading || isSubmitting) && (
         <div className="spinner-overlay" style={{ borderRadius: 0 }}>
           <div className="spinner" />
         </div>
       )}
-      
+
       <h2>Review Your Report</h2>
       <p style={{textAlign: 'center', fontStyle: 'italic', color: '#333', marginTop: 0}}>
         Drag the pin to the exact location.
       </p>
       <DetectionViewer imageDataUrl={imageRef.current} detections={apiResult ? apiResult.detections : []} />
 
-      {apiResult ? (
+      {apiResult && !error && (
         <div className="submission-result" style={{ marginTop: '1rem' }}>
           <p>{apiResult.message}</p>
         </div>
-      ) : (
+      )}
+      
+      {isLoading && !apiResult && (
          <p style={{ marginTop: '1rem' }}>Analyzing image for potholes...</p>
       )}
 
@@ -182,19 +208,28 @@ const ReportReview = () => {
       </MapContainer>
 
       {manualLocation && <LocationDisplay latitude={manualLocation.lat} longitude={manualLocation.lng} accuracy={manualLocation.accuracy} />}
-      
-      {error && <p className="error-text">{error}</p>}
+
+      {error && (
+        <div className="error-container" style={{textAlign: 'center', marginTop: '1rem'}}>
+          <p className="error-text">{error}</p>
+          {/* --- USER FLOW FIX --- */}
+          <Button onClick={handleRetryAnalysis} variant="secondary">
+            Retry Analysis
+          </Button>
+          {/* --- END FIX --- */}
+        </div>
+      )}
 
       <div className="actions" style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center', gap: '1rem' }}>
-        <Button 
-          onClick={handleFinalSubmit} 
-          disabled={!apiResult || isSubmitting}
+        <Button
+          onClick={handleFinalSubmit}
+          disabled={!apiResult || isSubmitting || error}
         >
           {isSubmitting ? "Submitting..." : "Submit Report"}
         </Button>
 
-        <Button 
-          onClick={() => navigate('/home')} 
+        <Button
+          onClick={handleCancel}
           variant="secondary"
           disabled={isSubmitting}
         >

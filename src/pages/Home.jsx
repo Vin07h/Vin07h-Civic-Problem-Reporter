@@ -7,7 +7,7 @@ import { getCurrentLocation } from '../utils/helpers';
 import LocationDisplay from '../components/shared/LocationDisplay';
 import './Home.css';
 
-// (Helper components ChangeView and LocationMarker are unchanged)
+// (Helper components are unchanged)
 function ChangeView({ center, zoom }) {
   const map = useMap();
   useEffect(() => {
@@ -62,6 +62,7 @@ const Home = () => {
   const [isDragging, setIsDragging] = useState(false);
   const navigate = useNavigate();
 
+  // (All useEffect and handler functions are unchanged)
   useEffect(() => {
     const getMedia = async () => {
       if (!isCameraActive) return;
@@ -155,7 +156,6 @@ const Home = () => {
     }
   };
 
-  // --- Drag and Drop Handlers ---
   const handleDragEnter = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -178,13 +178,12 @@ const Home = () => {
       processFile(e.dataTransfer.files[0]);
     }
   };
-  // --- End Drag and Drop ---
 
   const handleRetake = () => {
     setCapturedImage(null);
     setError(null);
     setLocation(null);
-    setIsCameraActive(false); 
+    setIsCameraActive(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = null;
     }
@@ -192,19 +191,30 @@ const Home = () => {
 
   const handleConfirm = () => {
     if (!capturedImage) return;
+    
+    try {
+      sessionStorage.setItem('reportData', JSON.stringify({ image: capturedImage, location }));
+    } catch (e) {
+      console.error("Could not save to sessionStorage", e);
+    }
+    
     navigate('/report-review', { state: { image: capturedImage, location } });
   };
+  // (End of unchanged functions)
+
 
   return (
-    // (FIX) We remove the <div className="card"> wrapper
-    <div className="home-page"> 
+    <div className="home-page">
       <div className="home-page__content-wrapper">
         {isLoading && <LoadingSpinner />}
 
         {/* State 1: Initial choice */}
         {!isCameraActive && !capturedImage && (
           <div
-            className={`initial-choice ${isDragging ? 'dragging-over' : ''}`}
+            // --- UI IMPROVEMENT ---
+            // Added `initial-choice--dropzone` for persistent styling
+            className={`initial-choice initial-choice--dropzone ${isDragging ? 'dragging-over' : ''}`}
+            // --- END IMPROVEMENT ---
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragEnter={handleDragEnter}
@@ -230,12 +240,12 @@ const Home = () => {
           </>
         )}
 
-        {/* State 3: Image preview */}
+        {/* State 3: Image preview (unchanged) */}
         {capturedImage && !isLoading && (
           <div className="preview-container">
             <h2>Preview</h2>
             <img src={capturedImage} alt="Captured pothole" className="preview-image" />
-            
+
             <div className="location-preview" style={{ marginTop: '1rem' }}>
               {location ? (
                 <>
@@ -253,11 +263,11 @@ const Home = () => {
                 </>
               ) : (
                 <p className="error-text">
-                  {error || "Location not found. You can set it on the next page."}
+                  {error || "Location not found. You can add it manually in the next step."}
                 </p>
               )}
             </div>
-            
+
             {error && !location && <p className="error-text">{error}</p>}
 
             <div className="actions">

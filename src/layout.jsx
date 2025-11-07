@@ -1,25 +1,35 @@
 import React from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 /**
  * A layout component that provides a consistent header
  * and card-based wrapper for all pages in the app.
+ *
+ * It now accepts 'children' as a prop.
  */
-function Layout() {
+function Layout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
 
   // Don't show the main header on the Onboarding (welcome) page
   const showHeader = location.pathname !== '/';
+  
+  // --- USER FLOW FIX ---
+  // Clears session storage on header click to prevent stale data
+  const handleHeaderClick = () => {
+    sessionStorage.removeItem('reportData');
+    navigate('/home');
+  };
+  // --- END FIX ---
 
   return (
     <div className="app-container">
-      
+
       {/* Conditionally show the header */}
       {showHeader && (
         <header className="app-header">
           {/* Make the header clickable to go home */}
-          <h1 onClick={() => navigate('/home')} style={{ cursor: 'pointer' }}>
+          <h1 onClick={handleHeaderClick} style={{ cursor: 'pointer' }}>
             Civic Problem Reporter
           </h1>
         </header>
@@ -30,7 +40,7 @@ function Layout() {
           '.card' style for a consistent, centered look.
         */}
         <div className="card" style={{ maxWidth: '600px', margin: '0 auto' }}>
-          <Outlet /> {/* This is where the page content will be rendered */}
+          {children}
         </div>
       </main>
     </div>
