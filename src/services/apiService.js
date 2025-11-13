@@ -1,38 +1,60 @@
 import axios from 'axios';
 
-// Use the environment variable, with a fallback
-const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-
-const apiClient = axios.create({
-  baseURL: baseURL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+// Get the backend URL from environment variables, with a fallback
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 /**
- * Sends a base64 encoded image to the backend for detection.
- * @param {string} imageBase64 The compressed image as a base64 string.
- * @param {{lat: number, lng: number}} location The location object.
- * @returns {Promise<any>} A promise that resolves with the API response.
+ * (Step 1) Sends the image and location to the backend for AI detection.
+ * @param {string} base64Image - The base64-encoded image string.
+ * @param {object} location - An object with { lat, lng }.
+ * @returns {Promise<object>} The API response with detection results.
  */
-export const sendImageForDetection = (imageBase64, location) => {
-  const payload = { image: imageBase64, latitude: location.lat, longitude: location.lng };
-  return apiClient.post('/vision/detect', payload);
+export const sendImageForDetection = (base64Image, location) => {
+  return axios.post(`${API_URL}/vision/detect`, {
+    image: base64Image,
+    latitude: location.lat,
+    longitude: location.lng,
+  });
 };
 
 /**
- * Submits the final confirmed report to the backend.
- * @param {string} fullImageDataUrl The *original* (uncompressed) base64 data URL.
- * @param {{lat: number, lng: number}} location The confirmed location.
- * @param {Array} detections The array of detected bounding boxes.
- * @returns {Promise<any>} A promise that resolves with the final API response.
+ * (Step 2) Submits the final, confirmed report to the backend.
+ * @param {string} base64Image - The base64-encoded image string.
+ * @param {object} location - An object with { lat, lng }.
+ * @param {Array<object>} detections - The list of confirmed detections.
+ *Next, upload your `App.js` file. @returns {Promise<object>} The API response with the final report details.
  */
-export const submitFinalReport = (fullImageDataUrl, location, detections) => {
-  const payload = {
-    image: fullImageDataUrl,
-    location: location,
+export const submitFinalReport = (base64Image, location, detections) => {
+  return axios.post(`${API_URL}/report/submit`, {
+    image: base64Image,
+    location: {
+      lat: location.lat,
+      lng: location.lng,
+    },
     detections: detections,
-  };
-  return apiClient.post('/report/submit', payload);
+  });
+};
+
+// --- ================================== ---
+// ---       ** NEW ADMIN FUNCTIONS ** ---
+// --- ================================== ---
+
+/**
+ * Fetches all reports from the database for the admin dashboard.
+ * @returns {Promise<object>} The API response with a list of all reports.
+ */
+export const getAdminReports = () => {
+  return axios.get(`${API_URL}/admin/reports`);
+};
+
+/**
+ * Updates the status of a specific report.
+ * @param {string} reportId - The MongoDB ID of the report.
+ * @param {string} newStatus - The new status (e.g., "in-progress", "resolved").
+ * @returns {Promise<object>} The API response with the updated report.
+ */
+export const updateReportStatus = (reportId, newStatus) => {
+  return axios.patch(`${API_URL}/admin/report/${reportId}`, {
+    status: newStatus,
+  });
 };

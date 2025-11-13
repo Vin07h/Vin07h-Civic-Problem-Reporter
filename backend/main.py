@@ -11,9 +11,10 @@ import httpx
 import cloudinary
 import cloudinary.uploader
 from pymongo import MongoClient
+from bson import ObjectId  # <-- **NEW**: Import ObjectId to query by _id
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, File, Form
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.concurrency import run_in_threadpool
 from ultralytics import YOLO
@@ -57,7 +58,7 @@ class ImagePayload(BaseModel):
 
 class DetectionResult(BaseModel):
     status: str
-    problems_detected: bool  # <-- RENAMED from pothole_detected
+    problems_detected: bool
     latitude: float
     longitude: float
     message: str
@@ -68,26 +69,40 @@ class FinalReportPayload(BaseModel):
     location: dict
     detections: list[BoundingBox]
 
+# --- **NEW**: Pydantic model for Admin updates ---
+class ReportStatusUpdate(BaseModel):
+    status: str
 
-# --- Computer Vision Inference Service ---
+# --- **NEW**: Pydantic model for returning report data ---
+# We need this to handle converting MongoDB's _id
+class ProblemReport(BaseModel):
+    id: str = Field(..., alias="_id")  # This handles the _id -> id mapping
+    problem_types: list[str]
+    location: dict
+    ward_name: str
+    full_address: str
+    image_url: str
+    detections: list[BoundingBox]
+    status: str
+    created_at: datetime
+
+    class Config:
+        arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str}
+# --- End of new models ---
+
+
 # --- Computer Vision Inference Service ---
 class CVInferenceService:
     def __init__(self):
-        # --- 1. DEFINE MODEL PATHS ---
         self.POTHOLE_MODEL_PATH = os.path.join("model", "best.pt")
-        self.GARBAGE_MODEL_PATH = os.path.join("model", "garbagedetectionbest.pt") # From your previous file
-        
+        self.GARBAGE_MODEL_PATH = os.path.join("model", "garbagedetectionbest.pt")
         self.CONFIDENCE_THRESHOLD = 0.25
         self.IOU_THRESHOLD = 0.5
-        
-        # --- 2. LOAD MODELS AT STARTUP ---
-        # This is the code that fixes your error.
-        # It creates self.model_pothole and self.model_garbage
         self.model_pothole = self.load_model(self.POTHOLE_MODEL_PATH, "Pothole")
         self.model_garbage = self.load_model(self.GARBAGE_MODEL_PATH, "Garbage")
 
     def load_model(self, path: str, model_name: str):
-        """Helper function to load a YOLO model."""
         if not os.path.exists(path):
             print(f"FATAL ERROR: Could not find {model_name} model at {path}")
             return None
@@ -113,18 +128,15 @@ class CVInferenceService:
             raise HTTPException(status_code=400, detail=f"Invalid image format: {e}")
 
     def _process_results(self, results) -> list[BoundingBox]:
-        """Helper to extract detections from a YOLO result object."""
         detections = []
         if not results or len(results) == 0:
             return detections
-        
-        result = results[0]  # Get the first result
+        result = results[0]
         for box in result.boxes:
             class_index = int(box.cls[0])
             class_name = result.names[class_index]
             confidence = float(box.conf[0])
             coords = box.xyxy[0].tolist()
-
             detections.append(
                 BoundingBox(
                     x_min=round(coords[0]),
@@ -138,62 +150,41 @@ class CVInferenceService:
         return detections
 
     def run_inference(self, image: np.ndarray) -> list[BoundingBox]:
-        """Runs inference with *both* models and combines results."""
         all_detections: list[BoundingBox] = []
-
-        # --- 1. Pothole Inference ---
-        # This line (143) will now work because self.model_pothole exists
         if self.model_pothole:
             try:
                 pothole_results = self.model_pothole.predict(
-                    source=image,
-                    conf=self.CONFIDENCE_THRESHOLD,
-                    iou=self.IOU_THRESHOLD,
-                    verbose=False,
-                    imgsz=640
+                    source=image, conf=self.CONFIDENCE_THRESHOLD, iou=self.IOU_THRESHOLD, verbose=False, imgsz=640
                 )
                 all_detections.extend(self._process_results(pothole_results))
             except Exception as e:
                 print(f"Error during pothole inference: {e}")
         else:
             print("Pothole model not loaded, skipping.")
-
-        # --- 2. Garbage Inference ---
         if self.model_garbage:
             try:
                 garbage_results = self.model_garbage.predict(
-                    source=image,
-                    conf=self.CONFIDENCE_THRESHOLD,
-                    iou=self.IOU_THRESHOLD,
-                    verbose=False,
-                    imgsz=640
+                    source=image, conf=self.CONFIDENCE_THRESHOLD, iou=self.IOU_THRESHOLD, verbose=False, imgsz=640
                 )
                 all_detections.extend(self._process_results(garbage_results))
             except Exception as e:
                 print(f"Error during garbage inference: {e}")
         else:
             print("Garbage model not loaded, skipping.")
-
         return all_detections
-    
+
 # --- Helper Function for Geocoding ---
 async def get_ward_from_coords(lat: float, lon: float):
-    """Uses Google Maps API to convert (lat, lon) into a ward/district."""
     base_url = "https://maps.googleapis.com/maps/api/geocode/json"
-    params = {
-        "latlng": f"{lat},{lon}",
-        "key": GOOGLE_MAPS_API_KEY
-    }
+    params = {"latlng": f"{lat},{lon}", "key": GOOGLE_MAPS_API_KEY}
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(base_url, params=params)
             response.raise_for_status()
             data = response.json()
-
         if data['status'] != 'OK':
             print(f"Google Geocoding Error: {data['status']}")
             return "N/A", "N/A"
-
         full_address = data['results'][0]['formatted_address']
         ward_name = "N/A"
         district_name = "N/A"
@@ -212,14 +203,14 @@ async def get_ward_from_coords(lat: float, lon: float):
         print(f"Geocoding parsing error: {e}")
         return "N/A", "N/A"
 
-
 # --- FastAPI Application Setup ---
 app = FastAPI()
-cv_service = CVInferenceService()  # This now loads both models on startup
+cv_service = CVInferenceService()
 
 origins = [
     FRONTEND_ORIGIN,
     "http://127.0.0.1:5173",
+    "http://localhost:5173",
     "http://localhost:5174"
 ]
 app.add_middleware(
@@ -231,91 +222,60 @@ app.add_middleware(
 )
 
 # --- API Endpoints ---
-
 @app.get("/")
 def read_root():
     return {"message": "Civic Problem Detection API is running"}
 
-
 @app.post("/vision/detect", response_model=DetectionResult)
-async def detect_problems(payload: ImagePayload): # Renamed from detect_pothole
-    """(Step 1) Receives image, runs all AI detections, and returns bounding boxes."""
+async def detect_problems(payload: ImagePayload):
     image = cv_service.decode_base64_image(payload.image)
-    
-    # Run blocking ML call in a thread pool
-    # This now runs BOTH pothole and garbage models
     detections = await run_in_threadpool(cv_service.run_inference, image)
-
     problems_detected = len(detections) > 0
-
     if problems_detected:
-        # Dynamically create a summary of problems
         problem_counts = {}
         for d in detections:
             problem_counts[d.class_name] = problem_counts.get(d.class_name, 0) + 1
-        
         message_parts = [f"{count} {name}(s)" for name, count in problem_counts.items()]
         message = f"Problems detected: {', '.join(message_parts)}."
     else:
         message = "No problems detected. You can still submit a manual report."
-
     return DetectionResult(
         status="success",
-        problems_detected=problems_detected, # <-- Updated field
+        problems_detected=problems_detected,
         latitude=payload.latitude,
         longitude=payload.longitude,
         message=message,
         detections=detections
     )
 
-
 @app.post("/report/submit")
 async def submit_report(payload: FinalReportPayload):
-    """
-    (Step 2) Receives the confirmed report, uploads image, gets ward name,
-    and saves the complete report to MongoDB.
-    """
     if not mongo_client:
         raise HTTPException(status_code=500, detail="Database not connected")
-
     lat = payload.location.get('lat')
     lon = payload.location.get('lng')
-
-    # Await async geocoding
     ward_name, full_address = await get_ward_from_coords(lat, lon)
-
     try:
-        # Run blocking image upload in a thread pool
         upload_result = await run_in_threadpool(
             cloudinary.uploader.upload,
             payload.image,
-            folder="civic_problem_reports" # More generic folder
+            folder="civic_problem_reports"
         )
         image_url = upload_result.get("secure_url")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image upload error: {str(e)}")
-
     try:
-        # --- DYNAMICALLY CREATE PROBLEM TYPES ---
-        # Get unique problem types (e.g., ['pothole', 'garbage']) from detections
         problem_types = list(set([d.class_name for d in payload.detections]))
-        
-        # If no detections (manual report), set a default
         if not problem_types:
             problem_types = ["manual"]
-        # --- End of dynamic logic ---
-
         report_document = {
-            "problem_types": problem_types, # <-- CHANGED: Now a list
-            "location": {
-                "type": "Point",
-                "coordinates": [lon, lat]
-            },
+            "problem_types": problem_types,
+            "location": {"type": "Point", "coordinates": [lon, lat]},
             "ward_name": ward_name,
             "full_address": full_address,
             "image_url": image_url,
             "detections": [d.dict() for d in payload.detections],
-            "status": "new",
+            "status": "new", # Default status
             "created_at": datetime.utcnow()
         }
         insert_result = problems_collection.insert_one(report_document)
@@ -329,3 +289,80 @@ async def submit_report(payload: FinalReportPayload):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+# --- ================================== ---
+# ---       ** NEW ADMIN ENDPOINTS ** ---
+# --- ================================== ---
+
+# --- **NEW**: Get all reports (for admin) ---
+# --- **NEW**: Get all reports (for admin) ---
+@app.get("/admin/reports", response_model=list[ProblemReport])
+async def get_all_reports():
+    """
+    Fetches all reports from the database, sorted by newest first.
+    This will also migrate old schema data to the new format.
+    """
+    if not mongo_client:
+        raise HTTPException(status_code=500, detail="Database not connected")
+    try:
+        # Find all reports and sort by 'created_at' in descending order
+        reports_cursor = problems_collection.find().sort("created_at", -1)
+        
+        # --- **FIXED** ---
+        # We must manually loop and build a list that matches the Pydantic model
+        # to handle both schema migration and ObjectId conversion.
+        
+        report_list = []
+        for report in reports_cursor:
+            
+            # --- Fix 1: Handle schema mismatch (problem_type vs problem_types) ---
+            if "problem_types" not in report and "problem_type" in report:
+                # This is an old document. Create the new field.
+                report["problem_types"] = [report["problem_type"]]
+            elif "problem_types" not in report and "problem_type" not in report:
+                # This doc is somehow missing both. Add a default to pass validation.
+                report["problem_types"] = ["N/A"]
+
+            # --- Fix 2: Manually convert BSON ObjectId to a string ---
+            # Pydantic's 'alias' needs the key to be '_id'
+            report["_id"] = str(report["_id"])
+
+            # Now the 'report' dictionary matches our Pydantic model
+            report_list.append(report)
+            
+        return report_list
+        # --- **END OF FIX** ---
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database query error: {str(e)}")
+# --- **NEW**: Update a report's status (for admin) ---
+@app.patch("/admin/report/{report_id}", response_model=ProblemReport)
+async def update_report_status(report_id: str, update_data: ReportStatusUpdate):
+    """
+    Updates the 'status' of a single report by its ID.
+    TODO: Add authentication to this endpoint!
+    """
+    if not mongo_client:
+        raise HTTPException(status_code=500, detail="Database not connected")
+    
+    # Check if the provided ID is a valid MongoDB ObjectId
+    if not ObjectId.is_valid(report_id):
+        raise HTTPException(status_code=400, detail=f"Invalid Report ID: {report_id}")
+
+    try:
+        # Find the document by its ID and update the 'status' field
+        result = problems_collection.find_one_and_update(
+            {"_id": ObjectId(report_id)},
+            {"$set": {"status": update_data.status}},
+            return_document=True  # Return the document *after* the update
+        )
+        
+        if result:
+            # Convert _id to string for the response
+            result["_id"] = str(result["_id"])
+            return result
+        else:
+            raise HTTPException(status_code=404, detail=f"Report with ID {report_id} not found")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database update error: {str(e)}")

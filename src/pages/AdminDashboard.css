@@ -1,0 +1,146 @@
+.admin-dashboard {
+  width: 100%;
+  max-width: 1200px; /* Allow dashboard to be wider */
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.admin-dashboard h2 {
+  text-align: center;
+  color: #333;
+}
+
+.admin-table-container {
+  overflow-x: auto;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px; /* Ensure table has a min-width */
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+  vertical-align: middle;
+}
+
+.admin-table th {
+  background-color: #f4f6f8;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+}
+
+.admin-table tbody tr:hover {
+  background-color: #f9f9f9;
+}
+
+.admin-table-img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #eee;
+  transition: transform 0.2s ease;
+}
+
+.admin-table-img:hover {
+  transform: scale(1.1);
+}
+
+.problem-types {
+  text-transform: capitalize;
+  font-weight: 500;
+}
+
+.address-cell {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.9rem;
+}
+.address-cell strong {
+  font-weight: 600;
+  color: #333;
+}
+.address-cell span {
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.status-select {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+}
+
+.status-select.status-new {
+  border-color: #007bff;
+  color: #007bff;
+}
+.status-select.status-in-progress {
+  border-color: #ffc107;
+  color: #b38600;
+}
+.status-select.status-resolved {
+  border-color: #28a745;
+  color: #28a745;
+}
+
+/* Responsive styles for mobile */
+@media (max-width: 768px) {
+  .admin-table {
+    min-width: 100%;
+  }
+  .admin-table thead {
+    display: none;
+  }
+  .admin-table tbody,
+  .admin-table tr,
+  .admin-table td {
+    display: block;
+    width: 100%;
+  }
+  .admin-table tr {
+    border-bottom: 2px solid #0056b3;
+    margin-bottom: 1rem;
+  }
+  .admin-table td {
+    text-align: right;
+    padding-left: 50%;
+    position: relative;
+    border-bottom: 1px solid #eee;
+  }
+  .admin-table td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 10px;
+    width: calc(50% - 20px);
+    padding-right: 10px;
+    text-align: left;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    color: #555;
+  }
+  .admin-table td:last-child {
+    border-bottom: 0;
+  }
+  .admin-table-img {
+    width: 60px;
+    height: 60px;
+  }
+  .status-select {
+    width: 100%;
+  }
+}
