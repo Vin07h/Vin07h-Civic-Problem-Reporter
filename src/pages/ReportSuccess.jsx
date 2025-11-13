@@ -59,6 +59,12 @@ const ReportSuccess = () => {
             <strong>Full Address:</strong><br />
             <span>{report.full_address}</span>
           </li>
+          <li style={{ marginBottom: '0.75rem' }}>
+            <strong>Problem(s) Reported:</strong><br />
+            <span style={{ textTransform: 'capitalize' }}>
+              {report.problem_types ? report.problem_types.join(', ') : 'Manual Report'}
+            </span>
+          </li>
           <li>
             <strong>Final Location:</strong>
             <LocationDisplay latitude={location.lat} longitude={location.lng} />
@@ -82,7 +88,7 @@ const ReportSuccess = () => {
         onClick={() => navigate('/home')}
         style={{ width: '100%', marginTop: '2rem' }}
       >
-        Report Another Pothole
+        Report Another issue
       </Button>
     </div>
   );

@@ -57,7 +57,7 @@ class ImagePayload(BaseModel):
 
 class DetectionResult(BaseModel):
     status: str
-    pothole_detected: bool
+    problems_detected: bool  # <-- RENAMED from pothole_detected
     latitude: float
     longitude: float
     message: str
@@ -69,17 +69,35 @@ class FinalReportPayload(BaseModel):
     detections: list[BoundingBox]
 
 
-# ---  Computer Vision Inference Service ---
+# --- Computer Vision Inference Service ---
+# --- Computer Vision Inference Service ---
 class CVInferenceService:
     def __init__(self):
-        self.MODEL_PATH = os.path.join("model", "best.pt")
-        self.TARGET_CLASS_NAME = 'pothole'
+        # --- 1. DEFINE MODEL PATHS ---
+        self.POTHOLE_MODEL_PATH = os.path.join("model", "best.pt")
+        self.GARBAGE_MODEL_PATH = os.path.join("model", "garbagedetectionbest.pt") # From your previous file
+        
         self.CONFIDENCE_THRESHOLD = 0.25
         self.IOU_THRESHOLD = 0.5
-        # Model is loaded in run_inference() for thread-safety.
-        print(f"CVInferenceService initialized. Model path: {self.MODEL_PATH}")
-        if not os.path.exists(self.MODEL_PATH):
-             print(f"FATAL ERROR: Could not find YOLO model at {self.MODEL_PATH}")
+        
+        # --- 2. LOAD MODELS AT STARTUP ---
+        # This is the code that fixes your error.
+        # It creates self.model_pothole and self.model_garbage
+        self.model_pothole = self.load_model(self.POTHOLE_MODEL_PATH, "Pothole")
+        self.model_garbage = self.load_model(self.GARBAGE_MODEL_PATH, "Garbage")
+
+    def load_model(self, path: str, model_name: str):
+        """Helper function to load a YOLO model."""
+        if not os.path.exists(path):
+            print(f"FATAL ERROR: Could not find {model_name} model at {path}")
+            return None
+        try:
+            model = YOLO(path)
+            print(f"{model_name} model loaded successfully from {path}")
+            return model
+        except Exception as e:
+            print(f"Error loading {model_name} model: {e}")
+            return None
 
     def decode_base64_image(self, base64_string: str) -> np.ndarray:
         if ',' in base64_string:
@@ -94,59 +112,82 @@ class CVInferenceService:
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid image format: {e}")
 
+    def _process_results(self, results) -> list[BoundingBox]:
+        """Helper to extract detections from a YOLO result object."""
+        detections = []
+        if not results or len(results) == 0:
+            return detections
+        
+        result = results[0]  # Get the first result
+        for box in result.boxes:
+            class_index = int(box.cls[0])
+            class_name = result.names[class_index]
+            confidence = float(box.conf[0])
+            coords = box.xyxy[0].tolist()
+
+            detections.append(
+                BoundingBox(
+                    x_min=round(coords[0]),
+                    y_min=round(coords[1]),
+                    x_max=round(coords[2]),
+                    y_max=round(coords[3]),
+                    confidence=round(confidence, 4),
+                    class_name=class_name
+                )
+            )
+        return detections
+
     def run_inference(self, image: np.ndarray) -> list[BoundingBox]:
-        # Load the model here (not in __init__) to ensure thread-safety
-        # when run_in_threadpool calls this method.
-        try:
-            model = YOLO(self.MODEL_PATH)
-            print(f"INFO: YOLO model loaded successfully from {self.MODEL_PATH} in worker thread.")
-        except Exception as e:
-            print(f"FATAL ERROR: Could not load YOLO model in worker thread. DETAILS: {e}")
-            return []
+        """Runs inference with *both* models and combines results."""
+        all_detections: list[BoundingBox] = []
 
-        results = model.predict(
-            source=image,
-            conf=self.CONFIDENCE_THRESHOLD,
-            iou=self.IOU_THRESHOLD,
-            verbose=False,
-            imgsz=640
-        )
-        detected_potholes: list[BoundingBox] = []
-        if results and len(results) > 0:
-            result = results[0]
-            for box in result.boxes:
-                class_index = int(box.cls[0])
-                class_name = result.names[class_index]
-                confidence = float(box.conf[0])
-                if class_name.lower() == self.TARGET_CLASS_NAME:
-                    coords = box.xyxy[0].tolist()
-                    detected_potholes.append(
-                        BoundingBox(
-                            x_min=round(coords[0]),
-                            y_min=round(coords[1]),
-                            x_max=round(coords[2]),
-                            y_max=round(coords[3]),
-                            confidence=round(confidence, 4),
-                            class_name=class_name
-                        )
-                    )
-        return detected_potholes
+        # --- 1. Pothole Inference ---
+        # This line (143) will now work because self.model_pothole exists
+        if self.model_pothole:
+            try:
+                pothole_results = self.model_pothole.predict(
+                    source=image,
+                    conf=self.CONFIDENCE_THRESHOLD,
+                    iou=self.IOU_THRESHOLD,
+                    verbose=False,
+                    imgsz=640
+                )
+                all_detections.extend(self._process_results(pothole_results))
+            except Exception as e:
+                print(f"Error during pothole inference: {e}")
+        else:
+            print("Pothole model not loaded, skipping.")
 
+        # --- 2. Garbage Inference ---
+        if self.model_garbage:
+            try:
+                garbage_results = self.model_garbage.predict(
+                    source=image,
+                    conf=self.CONFIDENCE_THRESHOLD,
+                    iou=self.IOU_THRESHOLD,
+                    verbose=False,
+                    imgsz=640
+                )
+                all_detections.extend(self._process_results(garbage_results))
+            except Exception as e:
+                print(f"Error during garbage inference: {e}")
+        else:
+            print("Garbage model not loaded, skipping.")
+
+        return all_detections
+    
 # --- Helper Function for Geocoding ---
 async def get_ward_from_coords(lat: float, lon: float):
     """Uses Google Maps API to convert (lat, lon) into a ward/district."""
-
     base_url = "https://maps.googleapis.com/maps/api/geocode/json"
     params = {
         "latlng": f"{lat},{lon}",
         "key": GOOGLE_MAPS_API_KEY
     }
-
     try:
-        # Use httpx for async-compatible network requests
         async with httpx.AsyncClient() as client:
             response = await client.get(base_url, params=params)
-            response.raise_for_status() 
+            response.raise_for_status()
             data = response.json()
 
         if data['status'] != 'OK':
@@ -174,7 +215,7 @@ async def get_ward_from_coords(lat: float, lon: float):
 
 # --- FastAPI Application Setup ---
 app = FastAPI()
-cv_service = CVInferenceService()
+cv_service = CVInferenceService()  # This now loads both models on startup
 
 origins = [
     FRONTEND_ORIGIN,
@@ -197,23 +238,30 @@ def read_root():
 
 
 @app.post("/vision/detect", response_model=DetectionResult)
-async def detect_pothole(payload: ImagePayload):
-    """(Step 1) Receives an image, runs AI detection, and returns bounding boxes."""
+async def detect_problems(payload: ImagePayload): # Renamed from detect_pothole
+    """(Step 1) Receives image, runs all AI detections, and returns bounding boxes."""
     image = cv_service.decode_base64_image(payload.image)
     
-    # Run blocking ML call in a thread pool to avoid blocking the server
-    detections = await run_in_threadpool(cv_service.run_inference, image) 
+    # Run blocking ML call in a thread pool
+    # This now runs BOTH pothole and garbage models
+    detections = await run_in_threadpool(cv_service.run_inference, image)
 
-    pothole_detected = len(detections) > 0
+    problems_detected = len(detections) > 0
 
-    if pothole_detected:
-        message = f"Potholes detected ({len(detections)} instances)."
+    if problems_detected:
+        # Dynamically create a summary of problems
+        problem_counts = {}
+        for d in detections:
+            problem_counts[d.class_name] = problem_counts.get(d.class_name, 0) + 1
+        
+        message_parts = [f"{count} {name}(s)" for name, count in problem_counts.items()]
+        message = f"Problems detected: {', '.join(message_parts)}."
     else:
-        message = "No potholes detected. You can still submit a manual report."
+        message = "No problems detected. You can still submit a manual report."
 
     return DetectionResult(
         status="success",
-        pothole_detected=pothole_detected,
+        problems_detected=problems_detected, # <-- Updated field
         latitude=payload.latitude,
         longitude=payload.longitude,
         message=message,
@@ -241,15 +289,24 @@ async def submit_report(payload: FinalReportPayload):
         upload_result = await run_in_threadpool(
             cloudinary.uploader.upload,
             payload.image,
-            folder="pothole_reports"
+            folder="civic_problem_reports" # More generic folder
         )
         image_url = upload_result.get("secure_url")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image upload error: {str(e)}")
 
     try:
+        # --- DYNAMICALLY CREATE PROBLEM TYPES ---
+        # Get unique problem types (e.g., ['pothole', 'garbage']) from detections
+        problem_types = list(set([d.class_name for d in payload.detections]))
+        
+        # If no detections (manual report), set a default
+        if not problem_types:
+            problem_types = ["manual"]
+        # --- End of dynamic logic ---
+
         report_document = {
-            "problem_type": "pothole",
+            "problem_types": problem_types, # <-- CHANGED: Now a list
             "location": {
                 "type": "Point",
                 "coordinates": [lon, lat]
@@ -267,7 +324,8 @@ async def submit_report(payload: FinalReportPayload):
             "report_id": str(insert_result.inserted_id),
             "ward_name": ward_name,
             "full_address": full_address,
-            "image_url": image_url
+            "image_url": image_url,
+            "problem_types": problem_types
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")

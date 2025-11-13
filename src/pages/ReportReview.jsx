@@ -119,9 +119,9 @@ const ReportReview = () => {
       setError("Cannot submit: Location is missing.");
       return;
     }
-    if (!apiResult.pothole_detected) {
-      console.log("Submitting as a manual report (no AI detection).")
-    }
+    if (!apiResult.problems_detected) { // <-- CHANGED
+      console.log("Submitting as a manual report (no AI detection).")
+    }
 
     setIsSubmitting(true);
     setError(null);
@@ -191,7 +191,7 @@ const ReportReview = () => {
       )}
       
       {isLoading && !apiResult && (
-         <p style={{ marginTop: '1rem' }}>Analyzing image for potholes...</p>
+         <p style={{ marginTop: '1rem' }}>Analyzing image for problems...</p>
       )}
 
       {!manualLocation && (
