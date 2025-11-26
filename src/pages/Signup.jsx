@@ -10,16 +10,13 @@ export default function Signup() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  // Decide role server-side (we still pass it, but only set to 'admin' if invite matches env)
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     try {
-      // Determine role: admin only if invite code matches the env var
       const expected = import.meta.env.VITE_ADMIN_INVITE_CODE || '';
       const role = inviteCode && inviteCode === expected ? 'admin' : 'civilian';
 
-      // Warn if user attempted admin but code didn't match
       if (inviteCode && role !== 'admin') {
         setError('Invalid admin invite code. You will be created as a Civilian.');
       }
@@ -32,29 +29,64 @@ export default function Signup() {
   };
 
   return (
-    <div className="auth-page p-6 max-w-md mx-auto">
-      <h2 className="text-2xl font-bold mb-4">Sign Up</h2>
-      {error && <div className="mb-4 text-red-600">{error}</div>}
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input type="text" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-2 border rounded" />
-        <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-2 border rounded" />
-        <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-2 border rounded" />
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Admin invite code (optional)</label>
-          <input
-            type="text"
-            placeholder="Enter admin invite code if you have one"
-            value={inviteCode}
-            onChange={(e) => setInviteCode(e.target.value)}
-            className="w-full p-2 border rounded mt-1"
+    // FIX: Center alignment wrapper
+    <div style={{ 
+      minHeight: '80vh', 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center' 
+    }}>
+      <div className="auth-page p-6 max-w-md w-full border rounded-lg shadow-lg bg-white">
+        <h2 className="text-2xl font-bold mb-4 text-center">Create Account</h2>
+        
+        {error && <div className="mb-4 p-2 bg-red-100 text-red-600 rounded text-sm">{error}</div>}
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input 
+            type="text" 
+            placeholder="Full name" 
+            value={name} 
+            onChange={(e) => setName(e.target.value)} 
+            className="w-full p-2 border rounded focus:ring-2 focus:ring-green-500 outline-none" 
           />
-          <p className="text-xs text-gray-500 mt-1">Do not enter an invite code unless you were explicitly invited to be an Admin. If code is invalid you will be created as a Civilian.</p>
-        </div>
+          <input 
+            type="email" 
+            placeholder="Email address" 
+            value={email} 
+            onChange={(e) => setEmail(e.target.value)} 
+            className="w-full p-2 border rounded focus:ring-2 focus:ring-green-500 outline-none" 
+          />
+          <input 
+            type="password" 
+            placeholder="Create password" 
+            value={password} 
+            onChange={(e) => setPassword(e.target.value)} 
+            className="w-full p-2 border rounded focus:ring-2 focus:ring-green-500 outline-none" 
+          />
 
-        <button type="submit" className="w-full p-2 bg-green-600 text-white rounded">Create account</button>
-      </form>
-      <p className="mt-4 text-sm">Already have an account? <Link to="/login" className="text-blue-600">Login</Link></p>
+          <div className="pt-2 border-t mt-2">
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+              Admin Access (Optional)
+            </label>
+            <input
+              type="text"
+              placeholder="Invite Code"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              className="w-full p-2 border rounded bg-gray-50 focus:bg-white text-sm"
+            />
+            <p className="text-xs text-gray-400 mt-1">Leave blank unless you are an administrator.</p>
+          </div>
+
+          <button type="submit" className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 text-white font-semibold rounded transition duration-200">
+            Sign Up
+          </button>
+        </form>
+        
+        <p className="mt-4 text-sm text-center text-gray-600">
+          Already have an account? <Link to="/login" className="text-blue-600 font-semibold hover:underline">Login</Link>
+        </p>
+      </div>
     </div>
   );
 }

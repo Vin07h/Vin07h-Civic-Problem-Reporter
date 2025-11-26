@@ -71,7 +71,8 @@ export function AuthProvider({ children }) {
           // Fallback for backwards-compatibility: older path under artifacts/{appId}/users/{uid}/profile
           if (!profile) {
             try {
-              const legacyRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'profile');
+              // FIX: Add 'data' at the end to make it a valid document path
+              const legacyRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'profile', 'data');
               const legacySnap = await getDoc(legacyRef);
               if (legacySnap.exists()) profile = legacySnap.data();
             } catch (e) {

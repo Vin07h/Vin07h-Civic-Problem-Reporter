@@ -8,16 +8,15 @@ import { sendImageForDetection, submitFinalReport } from '../services/apiService
 import DetectionViewer from '../components/shared/DetectionViewer';
 import LoadingSpinner from '../components/shared/LoadingSpinner';
 
-// (Helper components ChangeView and LocationMarker are unchanged)
+// Helper components...
 function ChangeView({ center, zoom }) {
   const map = useMap();
   useEffect(() => {
-    if (center) {
-      map.setView(center, zoom);
-    }
+    if (center) map.setView(center, zoom);
   }, [center, zoom, map]);
   return null;
 }
+
 function LocationMarker({ position, setPosition }) {
   const markerRef = useRef(null);
   const map = useMapEvents({
@@ -26,39 +25,27 @@ function LocationMarker({ position, setPosition }) {
       map.flyTo(e.latlng, map.getZoom());
     },
   });
-  const eventHandlers = useMemo(
-    () => ({
-      dragend() {
-        const marker = markerRef.current;
-        if (marker != null) {
-          const { lat, lng } = marker.getLatLng();
-          setPosition({ lat, lng, accuracy: position?.accuracy || null });
-        }
-      },
-    }),
-    [position, setPosition],
-  );
-  if (!position) {
-    return null;
-  }
+  const eventHandlers = useMemo(() => ({
+    dragend() {
+      const marker = markerRef.current;
+      if (marker != null) {
+        const { lat, lng } = marker.getLatLng();
+        setPosition({ lat, lng, accuracy: position?.accuracy || null });
+      }
+    },
+  }), [position, setPosition]);
+
+  if (!position) return null;
   return (
-    <Marker
-      draggable={true}
-      eventHandlers={eventHandlers}
-      position={[position.lat, position.lng]}
-      ref={markerRef}
-    >
+    <Marker draggable={true} eventHandlers={eventHandlers} position={[position.lat, position.lng]} ref={markerRef}>
       <Popup>Drag me to the exact spot</Popup>
     </Marker>
   );
 }
-// (End of helper components)
-
 
 const ReportReview = () => {
   const location = useLocation();
   const navigate = useNavigate();
-
   const initialData = location.state || JSON.parse(sessionStorage.getItem('reportData'));
 
   const imageRef = useRef(initialData?.image);
@@ -86,54 +73,50 @@ const ReportReview = () => {
     }
   }, [navigate]);
 
+  // FIX: Detection Logic
   useEffect(() => {
+    // Only run if we have an image and NO result/error yet.
+    if (!imageRef.current || apiResult || error) return;
+    
+    // Note: Removed 'manualLocation' from dependency to prevent re-running AI when user moves the pin.
+    
     const runDetection = async () => {
-      if (!imageRef.current || !manualLocation) {
-        if (!locationRef.current) {
-          setError("Please select a location on the map to begin analysis.");
-        }
-        return;
-      }
-      // Do not run if we already have a result or an error
-      if(apiResult || error) return; 
-
       setIsLoading(true);
       setError(null);
       try {
         const compressed = await compressImage(imageRef.current, 800, 0.7);
-        const result = await sendImageForDetection(compressed, manualLocation);
+        // We pass the location available at start, but detection relies mostly on image
+        const result = await sendImageForDetection(compressed, manualLocation || {lat:0, lng:0});
         setApiResult(result.data);
       } catch (err) {
-        setError("Failed to analyze the image. Please try again.");
         console.error("Detection error:", err);
+        // We set error, but we will allow the user to override and submit manually below
+        setError("AI Analysis failed. You can still submit this report manually.");
       } finally {
         setIsLoading(false);
       }
     };
     runDetection();
-  }, [imageRef, manualLocation, apiResult, error]); // Add error to dependency array
-
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageRef]); 
 
   const handleFinalSubmit = async () => {
-    if (!apiResult || !manualLocation) {
+    if (!manualLocation) {
       setError("Cannot submit: Location is missing.");
       return;
     }
-    if (!apiResult.problems_detected) { // <-- CHANGED
-      console.log("Submitting as a manual report (no AI detection).")
-    }
 
     setIsSubmitting(true);
+    // Clear previous error to show we are trying
     setError(null);
 
     try {
-      // --- OPTIMIZATION ---
-      // Compress the image before final submission
       const compressedImage = await compressImage(imageRef.current, 1080, 0.8);
       
-      // Submit the compressed image
-      const result = await submitFinalReport(compressedImage, manualLocation, apiResult.detections);
-      // --- END OPTIMIZATION ---
+      // If apiResult exists, use its detections. If not (AI failed), send empty list.
+      const detections = apiResult?.detections || [];
+      
+      const result = await submitFinalReport(compressedImage, manualLocation, detections);
 
       sessionStorage.removeItem('reportData');
 
@@ -154,82 +137,76 @@ const ReportReview = () => {
     sessionStorage.removeItem('reportData');
     navigate('/home');
   };
-  
-  // --- USER FLOW FIX ---
-  // Resets state to re-trigger the analysis
+
   const handleRetryAnalysis = () => {
     setError(null);
     setApiResult(null);
-    // The useEffect will pick up this change and re-run
+    // This resets state so the useEffect above runs again
   };
-  // --- END FIX ---
 
-  if (!imageRef.current) {
-    return <LoadingSpinner />;
-  }
+  if (!imageRef.current) return <LoadingSpinner />;
 
   const initialPosition = manualLocation ? [manualLocation.lat, manualLocation.lng] : [12.9716, 77.5946];
 
   return (
-    <div className="report-review-page">
+    <div className="report-review-page max-w-3xl mx-auto p-4">
       {(isLoading || isSubmitting) && (
-        <div className="spinner-overlay" style={{ borderRadius: 0 }}>
-          <div className="spinner" />
-        </div>
+        <div className="spinner-overlay"><div className="spinner" /></div>
       )}
 
-      <h2>Review Your Report</h2>
-      <p style={{textAlign: 'center', fontStyle: 'italic', color: '#333', marginTop: 0}}>
-        Drag the pin to the exact location.
-      </p>
+      <h2 className="text-xl font-bold text-center mb-2">Review Your Report</h2>
+      
       <DetectionViewer imageDataUrl={imageRef.current} detections={apiResult ? apiResult.detections : []} />
 
-      {apiResult && !error && (
-        <div className="submission-result" style={{ marginTop: '1rem' }}>
+      {apiResult && (
+        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded text-center text-blue-800">
           <p>{apiResult.message}</p>
         </div>
       )}
       
       {isLoading && !apiResult && (
-         <p style={{ marginTop: '1rem' }}>Analyzing image for problems...</p>
+         <p className="text-center mt-4">Analyzing image for problems...</p>
       )}
 
-      {!manualLocation && (
-        <p className="map-prompt">Please click on the map to pinpoint the pothole's location.</p>
-      )}
+      <div className="mt-4">
+        <p className="text-center italic text-gray-600 mb-2">Drag the pin to the exact location.</p>
+        <MapContainer center={initialPosition} zoom={16} scrollWheelZoom={false} style={{ height: '300px', borderRadius: '8px' }}>
+          <TileLayer
+            attribution='&copy; OpenStreetMap contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <ChangeView center={initialPosition} zoom={16} />
+          <LocationMarker position={manualLocation} setPosition={setManualLocation} />
+        </MapContainer>
+      </div>
 
-      <MapContainer center={initialPosition} zoom={16} scrollWheelZoom={false} className="map-container">
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <ChangeView center={initialPosition} zoom={16} />
-        <LocationMarker position={manualLocation} setPosition={setManualLocation} />
-      </MapContainer>
-
-      {manualLocation && <LocationDisplay latitude={manualLocation.lat} longitude={manualLocation.lng} accuracy={manualLocation.accuracy} />}
-
-      {error && (
-        <div className="error-container" style={{textAlign: 'center', marginTop: '1rem'}}>
-          <p className="error-text">{error}</p>
-          {/* --- USER FLOW FIX --- */}
-          <Button onClick={handleRetryAnalysis} variant="secondary">
-            Retry Analysis
-          </Button>
-          {/* --- END FIX --- */}
+      {manualLocation && (
+        <div className="mt-2 text-center">
+            <LocationDisplay latitude={manualLocation.lat} longitude={manualLocation.lng} accuracy={manualLocation.accuracy} />
         </div>
       )}
 
-      <div className="actions" style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center', gap: '1rem' }}>
-        <Button
-          onClick={handleFinalSubmit}
-          disabled={!apiResult || isSubmitting || error}
+      {error && (
+        <div className="mt-4 p-3 bg-red-100 border border-red-300 rounded text-center">
+          <p className="text-red-700 font-medium mb-2">{error}</p>
+          {/* Only show retry if we don't have a result yet */}
+          {!apiResult && (
+             <Button onClick={handleRetryAnalysis} variant="secondary">Retry Analysis</Button>
+          )}
+        </div>
+      )}
+
+      <div className="actions mt-6 flex justify-center gap-4">
+        {/* FIX: Enable button even if there is an error (Fallback to manual) */}
+        <Button 
+          onClick={handleFinalSubmit} 
+          disabled={isSubmitting || !manualLocation}
         >
-          {isSubmitting ? "Submitting..." : "Submit Report"}
+          {error ? "Submit Manually" : (isSubmitting ? "Submitting..." : "Submit Report")}
         </Button>
 
-        <Button
-          onClick={handleCancel}
+        <Button 
+          onClick={handleCancel} 
           variant="secondary"
           disabled={isSubmitting}
         >

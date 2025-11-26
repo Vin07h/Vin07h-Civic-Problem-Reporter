@@ -1,116 +1,96 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import authService from '../services/authService.js';
-import { useAuth } from '../AuthContext.jsx';
 
 export default function Login() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // 1. Get the role passed from the Landing page (default to civilian if accessed directly)
+  const initialRole = location.state?.role || 'civilian';
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [preferredLanding, setPreferredLanding] = useState('auto');
-  const navigate = useNavigate();
-  const { user, anonymousDisabled } = useAuth();
+  const [loginType, setLoginType] = useState(initialRole); 
+
+  // Update state if location changes
+  useEffect(() => {
+    if (location.state?.role) {
+      setLoginType(location.state.role);
+    }
+  }, [location.state]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    
     try {
       const userObj = await authService.login({ email, password });
-
-      if (preferredLanding === 'admin') {
-        navigate('/admin');
-        return;
-      }
-      if (preferredLanding === 'civilian') {
-        navigate('/civilian');
-        return;
-      }
-
       const profile = await authService.getUserProfile(userObj.uid);
-      if (profile && profile.role === 'admin') {
-        navigate('/admin');
-      } else if (profile && profile.role === 'civilian') {
-        navigate('/civilian');
+      
+      // 2. Reroute Logic
+      const actualRole = profile?.role || 'civilian';
+
+      if (loginType === 'admin') {
+        // If they clicked "Admin" but their account is "Civilian", block them
+        if (actualRole !== 'admin') {
+          setError('Access Denied: You are not an Admin.');
+          authService.logout();
+          return;
+        }
+        navigate('/admin'); // Admin Success -> Dashboard
       } else {
-        navigate('/home');
+        navigate('/home'); // Civilian Success -> Reporting Camera
       }
+
     } catch (err) {
-      setError(err.message || 'Failed to login');
+      console.error(err);
+      setError('Invalid email or password.');
     }
   };
 
-  if (user && !user.isAnonymous) {
-    return <div className="p-6 text-center">You are already logged in.</div>;
-  }
-
   return (
-    <div style={{ 
-      minHeight: '80vh', 
-      display: 'flex', 
-      alignItems: 'center', 
-      justifyContent: 'center' 
-    }}>
-      <div className="auth-page p-6 max-w-md w-full border rounded-lg shadow-lg bg-white">
-        <h2 className="text-2xl font-bold mb-4 text-center">Login</h2>
-        
-        {anonymousDisabled && (
-          <div className="mb-4 p-3 bg-yellow-100 border-l-4 border-yellow-400 text-yellow-700 text-sm">
-            Anonymous sign-in disabled. Please log in.
-          </div>
-        )}
-        
-        {error && <div className="mb-4 p-2 bg-red-100 text-red-600 rounded text-sm">{error}</div>}
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input 
-              type="email" 
-              placeholder="name@example.com" 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)} 
-              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" 
-            />
-          </div>
-          
-          <div>
-             <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input 
-              type="password" 
-              placeholder="••••••••" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
-              className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" 
-            />
-          </div>
+    <div className="p-6 max-w-md mx-auto mt-10 border rounded shadow bg-white">
+      <h2 className="text-2xl font-bold mb-2 text-center">Login</h2>
+      <p className="text-center text-gray-500 mb-6">
+        Logging in as <span className="font-bold uppercase text-blue-600">{loginType}</span>
+      </p>
 
-          <div className="mt-4 p-3 bg-gray-50 rounded text-sm">
-            <span className="block font-semibold mb-2">I am a:</span>
-            <div className="flex gap-4">
-              <label className="cursor-pointer flex items-center">
-                <input type="radio" name="landing" value="auto" checked={preferredLanding === 'auto'} onChange={() => setPreferredLanding('auto')} className="mr-1"/> 
-                Auto
-              </label>
-              <label className="cursor-pointer flex items-center">
-                <input type="radio" name="landing" value="admin" checked={preferredLanding === 'admin'} onChange={() => setPreferredLanding('admin')} className="mr-1"/> 
-                Admin
-              </label>
-              <label className="cursor-pointer flex items-center">
-                <input type="radio" name="landing" value="civilian" checked={preferredLanding === 'civilian'} onChange={() => setPreferredLanding('civilian')} className="mr-1"/> 
-                Civilian
-              </label>
-            </div>
-          </div>
-
-          <button type="submit" className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition duration-200">
-            Login
-          </button>
-        </form>
-        
-        <p className="mt-4 text-sm text-center text-gray-600">
-          Don't have an account? <Link to="/signup" className="text-blue-600 font-semibold hover:underline">Sign up</Link>
-        </p>
+      {/* Hidden button to switch back to landing page if they made a mistake */}
+      <div className="text-center mb-4">
+        <Link to="/" className="text-sm text-gray-400 hover:text-gray-600">← Wrong role? Go back</Link>
       </div>
+
+      {error && <div className="mb-4 p-2 bg-red-100 text-red-600 rounded text-sm text-center">{error}</div>}
+      
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Email</label>
+          <input 
+            type="email" value={email} onChange={(e) => setEmail(e.target.value)} 
+            className="w-full p-2 border rounded mt-1" required
+          />
+        </div>
+        <div>
+           <label className="block text-sm font-medium text-gray-700">Password</label>
+          <input 
+            type="password" value={password} onChange={(e) => setPassword(e.target.value)} 
+            className="w-full p-2 border rounded mt-1" required
+          />
+        </div>
+
+        <button 
+          type="submit" 
+          className={`w-full py-2 px-4 text-white font-bold rounded ${loginType === 'admin' ? 'bg-gray-800 hover:bg-black' : 'bg-blue-600 hover:bg-blue-700'}`}
+        >
+          Login
+        </button>
+      </form>
+      
+      <p className="mt-4 text-sm text-center">
+        Don't have an account? <Link to="/signup" className="text-blue-600 underline">Sign up</Link>
+      </p>
     </div>
   );
 }

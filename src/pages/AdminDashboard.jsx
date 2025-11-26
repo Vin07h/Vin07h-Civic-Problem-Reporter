@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getAdminReports, updateReportStatus } from '../services/apiService';
-import './AdminDashboard.css'; // Make sure this CSS file exists
+import './AdminDashboard.css';
 
 // Helper component for the status dropdown
 const StatusSelect = ({ reportId, currentStatus, onStatusChange }) => {
@@ -26,20 +26,23 @@ const AdminDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch all reports when the component mounts
   useEffect(() => {
     const fetchReports = async () => {
       try {
         const response = await getAdminReports();
-        // The backend sends `_id` but we modeled it as `id`
-        // The new Pydantic model in main.py handles this, but let's be safe
+        // Safety map: ensure all fields exist
         const formattedReports = response.data.map(report => ({
             ...report,
-            id: report._id || report.id // Ensure we have a consistent 'id' field
+            id: report._id || report.id,
+            // CRITICAL FIX: Default to empty array if missing
+            problem_types: report.problem_types || ['Manual'], 
+            ward_name: report.ward_name || 'Unknown',
+            full_address: report.full_address || 'No Address',
+            image_url: report.image_url || 'https://via.placeholder.com/150'
         }));
         setReports(formattedReports);
       } catch (err) {
-        setError('Failed to fetch reports. Are you logged in?');
+        setError('Failed to fetch reports. Is the backend running?');
         console.error(err);
       } finally {
         setIsLoading(false);
@@ -48,13 +51,9 @@ const AdminDashboard = () => {
     fetchReports();
   }, []);
 
-  // This function is called by the StatusSelect component
   const handleStatusChange = async (reportId, newStatus) => {
     try {
-      // Call the API to update the status in the database
-      const response = await updateReportStatus(reportId, newStatus);
-      
-      // Update the status in our local React state to match
+      await updateReportStatus(reportId, newStatus);
       setReports((prevReports) =>
         prevReports.map((report) =>
           report.id === reportId ? { ...report, status: newStatus } : report
@@ -62,18 +61,11 @@ const AdminDashboard = () => {
       );
     } catch (err) {
       console.error('Failed to update status:', err);
-      // If the API call fails, you might want to revert the <select>
-      // For now, we'll just log the error
     }
   };
 
-  if (isLoading) {
-    return <div className="spinner-overlay"><div className="spinner" /></div>;
-  }
-
-  if (error) {
-    return <div className="error-text" style={{ textAlign: 'center', padding: '2rem' }}>{error}</div>;
-  }
+  if (isLoading) return <div className="spinner-overlay"><div className="spinner" /></div>;
+  if (error) return <div className="error-text" style={{ textAlign: 'center', padding: '2rem' }}>{error}</div>;
 
   return (
     <div className="admin-dashboard">
@@ -99,7 +91,8 @@ const AdminDashboard = () => {
                   </a>
                 </td>
                 <td data-label="Problem(s)" className="problem-types">
-                  {report.problem_types.join(', ')}
+                  {/* FIX: Safe join that handles empty/null arrays */}
+                  {(report.problem_types || []).join(', ')}
                 </td>
                 <td data-label="Address">
                   <div className="address-cell">

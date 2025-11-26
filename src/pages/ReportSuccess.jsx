@@ -4,6 +4,7 @@ import Button from '../components/shared/Button';
 import LocationDisplay from '../components/shared/LocationDisplay';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import LoadingSpinner from '../components/shared/LoadingSpinner';
+import DetectionViewer from '../components/shared/DetectionViewer'; // <--- NEW IMPORT
 
 // Helper component to center the map
 function ChangeView({ center, zoom }) {
@@ -41,11 +42,17 @@ const ReportSuccess = () => {
       </p>
 
       <div className="success-page__details">
-        <img src={report.image_url} alt="Submitted pothole" style={{ width: '100%', borderRadius: '8px', marginBottom: '1rem' }} />
+        {/* --- FIXED: Use DetectionViewer to show boxes --- */}
+        <div style={{ marginBottom: '1rem' }}>
+          <DetectionViewer 
+            imageDataUrl={report.image_url} 
+            detections={report.detections || []} 
+          />
+        </div>
+        {/* ----------------------------------------------- */}
 
         <h3>Report Details:</h3>
 
-        {/* --- UI IMPROVEMENT --- */}
         <ul style={{ listStyleType: 'none', padding: 0, margin: 0 }}>
           <li style={{ marginBottom: '0.75rem' }}>
             <strong>Report ID:</strong><br />
@@ -60,17 +67,16 @@ const ReportSuccess = () => {
             <span>{report.full_address}</span>
           </li>
           <li style={{ marginBottom: '0.75rem' }}>
-            <strong>Problem(s) Reported:</strong><br />
-            <span style={{ textTransform: 'capitalize' }}>
-              {report.problem_types ? report.problem_types.join(', ') : 'Manual Report'}
-            </span>
-          </li>
+            <strong>Problem(s) Reported:</strong><br />
+            <span style={{ textTransform: 'capitalize' }}>
+              {report.problem_types ? report.problem_types.join(', ') : 'Manual Report'}
+            </span>
+          </li>
           <li>
             <strong>Final Location:</strong>
             <LocationDisplay latitude={location.lat} longitude={location.lng} />
           </li>
         </ul>
-        {/* --- END IMPROVEMENT --- */}
 
         <MapContainer center={mapPosition} zoom={16} scrollWheelZoom={false} className="map-container" style={{ height: '200px', marginTop: '1rem' }}>
           <TileLayer
