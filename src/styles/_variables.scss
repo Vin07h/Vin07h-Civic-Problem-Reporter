@@ -8,21 +8,21 @@ $color-primary-dark: #002244;
 $color-primary-light: #E8F0F7;
 
 // Accents & Feedback
-$color-focus: #FFD100; // High contrast focus ring (Accessibility requirement)
+$color-focus: #FFD100;
 $color-danger: #D8000C;
 $color-success: #00703C;
 $color-warning: #FFBF47;
 
 // Neutrals
-$color-text-primary: #1B1B1B; // Almost black, softer than #000
+$color-text-primary: #1B1B1B;
 $color-text-secondary: #505A5F;
 $color-border: #BFC1C2;
-$color-background: #F0F2F5; // Light grey, prevents eye strain
+$color-background: #F0F2F5;
 $color-surface: #FFFFFF;
 
 // Typography
 $font-family-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-$font-size-base: 16px;
+$font-size-base: 16px; 
 $font-size-lg: 1.125rem;
 $font-size-sm: 0.875rem;
 
@@ -30,11 +30,16 @@ $font-weight-normal: 400;
 $font-weight-bold: 700;
 
 // Layout & Spacing
-$spacing-xs: 0.5rem;
-$spacing-md: 1rem;
-$spacing-lg: 2rem;
-$spacing-xl: 4rem;
+$spacing-xs: 0.5rem;  // 8px
+$spacing-md: 1rem;    // 16px
+$spacing-lg: 2rem;    // 32px
+$spacing-xl: 4rem;    // 64px
 
-$border-radius: 4px; // Government sites use sharper, authoritative corners
+$border-radius: 4px;
 $box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 $container-width: 960px;
+
+// --- RESPONSIVE BREAKPOINTS ---
+$mobile: 480px;
+$tablet: 768px;
+$desktop: 1024px;

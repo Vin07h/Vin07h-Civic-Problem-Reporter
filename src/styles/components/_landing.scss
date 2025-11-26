@@ -3,8 +3,13 @@
 .landing-page {
   padding: $spacing-xl 0;
   text-align: center;
-  max-width: 800px; // Limit width so cards don't get too wide
+  max-width: 800px;
   margin: 0 auto;
+  
+  // Reduce padding on mobile
+  @media (max-width: $mobile) {
+    padding: $spacing-lg 0;
+  }
 
   h1 {
     color: $color-primary;
@@ -20,15 +25,23 @@
 
 .portal-grid {
   display: flex;
-  flex-wrap: wrap; // Allows stacking on mobile
-  gap: 2rem;       // Enforces 32px space between cards
+  flex-wrap: wrap; 
+  gap: 2rem;
   justify-content: center;
   width: 100%;
+  
+  // On mobile, reduce gap
+  @media (max-width: $mobile) {
+    gap: $spacing-md;
+  }
 }
 
 .portal-card {
   flex: 1;
-  min-width: 280px; // Prevents them from getting too skinny
+  min-width: 280px; 
+  // Ensure card doesn't overflow screen width on very small devices
+  max-width: 100%; 
+  
   background-color: $color-surface;
   border: 1px solid $color-border;
   border-radius: $border-radius;
@@ -38,7 +51,6 @@
   display: flex;
   flex-direction: column;
 
-  // Add a top border color to distinguish roles
   &.civilian-card { border-top: 5px solid $color-primary; }
   &.admin-card { border-top: 5px solid $color-text-secondary; }
 
@@ -53,7 +65,7 @@
   }
 
   p {
-    flex-grow: 1; // Pushes button to bottom
+    flex-grow: 1;
     color: $color-text-secondary;
     margin-bottom: 1.5rem;
   }

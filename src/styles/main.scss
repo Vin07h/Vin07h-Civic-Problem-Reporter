@@ -6,7 +6,12 @@
 @use 'home';
 @use 'report-review';
 @use 'components/landing';
+
 // --- Global Reset & Base Styles ---
+
+* {
+    box-sizing: border-box; // Critical for responsive padding
+}
 
 body {
     font-family: $font-family-sans;
@@ -15,6 +20,7 @@ body {
     margin: 0;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
+    font-size: $font-size-base;
 }
 
 h1, h2, h3, h4 {
@@ -24,25 +30,16 @@ h1, h2, h3, h4 {
     font-weight: $font-weight-bold;
 }
 
-h1 { font-size: 2rem; }
-h2 { font-size: 1.5rem; border-bottom: 2px solid $color-border; padding-bottom: $spacing-xs; }
+// Responsive Headings
+h1 { font-size: 1.75rem; @media(min-width: $tablet) { font-size: 2rem; } }
+h2 { font-size: 1.25rem; @media(min-width: $tablet) { font-size: 1.5rem; } }
 
 a {
     color: $color-primary;
     text-decoration: underline;
     text-underline-offset: 2px;
-    
-    &:hover {
-        color: $color-primary-dark;
-        text-decoration-thickness: 2px;
-    }
-
-    &:focus {
-        outline: 3px solid $color-focus;
-        background-color: $color-focus;
-        color: $color-text-primary;
-        text-decoration: none;
-    }
+    &:hover { color: $color-primary-dark; text-decoration-thickness: 2px; }
+    &:focus { outline: 3px solid $color-focus; background-color: $color-focus; color: $color-text-primary; text-decoration: none; }
 }
 
 // --- Layout Containers ---
@@ -53,31 +50,93 @@ a {
     flex-direction: column;
 }
 
+// --- NEW RESPONSIVE HEADER STYLES ---
+.gov-header {
+    background-color: $color-primary;
+    color: white;
+    padding: $spacing-md;
+    border-bottom: 4px solid $color-focus;
+    
+    &__inner {
+        max-width: $container-width;
+        margin: 0 auto;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        // Mobile: Stack items vertically
+        @media (max-width: $mobile) {
+            flex-direction: column;
+            gap: $spacing-md;
+            text-align: center;
+        }
+    }
+
+    &__brand {
+        cursor: pointer;
+        font-weight: $font-weight-bold;
+        font-size: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        
+        &:focus { outline: 2px solid $color-focus; }
+    }
+
+    &__nav {
+        display: flex;
+        gap: $spacing-md;
+        
+        a {
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 0.5rem;
+            border-radius: $border-radius;
+            
+            &:hover { background-color: rgba(255,255,255,0.1); }
+            &.highlight { color: $color-focus; }
+        }
+    }
+}
+
 .main-content {
     flex: 1;
     width: 100%;
     max-width: $container-width;
     margin: 0 auto;
     padding: $spacing-md;
+    
+    // Reduce padding on small mobile screens
+    @media (max-width: $mobile) {
+        padding: $spacing-xs; 
+    }
 }
 
 // --- Component: Card ---
-// Used for Login, Forms, and Dashboard wrappers
 .card {
     background-color: $color-surface;
     border: 1px solid $color-border;
     border-radius: $border-radius;
     padding: $spacing-lg;
     margin-bottom: $spacing-lg;
-    // Remove heavy shadows for a cleaner, flatter look
     box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+
+    // Mobile: Reduce internal padding to save space
+    @media (max-width: $mobile) {
+        padding: $spacing-md;
+    }
+}
+
+.auth-wrapper {
+    // Allows landing page/auth to be full width or centered depending on content
+    width: 100%;
 }
 
 // --- Utility Classes ---
 .text-center { text-align: center; }
 .mt-4 { margin-top: $spacing-md; }
 .mb-4 { margin-bottom: $spacing-md; }
-.full-width { width: 100%; }
 
 .error-text {
     background-color: #FDF2F2;

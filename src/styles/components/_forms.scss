@@ -4,21 +4,31 @@
   max-width: 400px;
   margin: 2rem auto;
   background: $color-surface;
-  padding: $spacing-xl; // Generous internal padding
+  padding: $spacing-xl;
   border-radius: $border-radius;
   border: 1px solid $color-border;
-  box-shadow: $box-shadow; // Subtle lift
+  box-shadow: $box-shadow;
+
+  // Mobile Adaptation
+  @media (max-width: $mobile) {
+    width: 100%;
+    margin: 0;
+    border: none;
+    box-shadow: none;
+    padding: $spacing-md;
+    background: transparent;
+  }
 }
 
 .form-group {
-  margin-bottom: 1.5rem; // Separation between input groups
+  margin-bottom: 1.5rem;
   display: flex;
-  flex-direction: column; // Forces label to sit above input
+  flex-direction: column;
 }
 
 .form-label {
   display: block;
-  margin-bottom: 0.5rem; // Space between label and its input
+  margin-bottom: 0.5rem;
   font-weight: 600;
   color: $color-text-primary;
   font-size: 0.9rem;
@@ -26,23 +36,19 @@
 
 .form-input {
   width: 100%;
-  padding: 0.75rem; // Comfortable click area
+  padding: 0.75rem;
   border: 1px solid $color-border;
   border-radius: $border-radius;
-  font-family: $font-family-sans;
-  font-size: 1rem;
+  // Font size 16px prevents iOS from zooming in automatically on focus
+  font-size: 16px; 
   background-color: #FAFAFA;
   transition: border-color 0.2s, box-shadow 0.2s;
-  box-sizing: border-box; // Prevents padding from breaking width
+  box-sizing: border-box;
 
   &:focus {
     outline: none;
     border-color: $color-primary;
-    box-shadow: 0 0 0 3px rgba($color-primary, 0.2); // Focus ring
-  }
-
-  &::placeholder {
-    color: #999;
+    box-shadow: 0 0 0 3px rgba($color-primary, 0.2);
   }
 }
 
@@ -50,7 +56,7 @@
   margin-top: 2rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem; // Space between "Login" button and "Forgot Password"
+  gap: 1rem;
 }
 
 .form-footer {
