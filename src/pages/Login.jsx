@@ -5,8 +5,6 @@ import authService from '../services/authService.js';
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  
-  // 1. Get the role passed from the Landing page (default to civilian if accessed directly)
   const initialRole = location.state?.role || 'civilian';
   
   const [email, setEmail] = useState('');
@@ -14,7 +12,6 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loginType, setLoginType] = useState(initialRole); 
 
-  // Update state if location changes
   useEffect(() => {
     if (location.state?.role) {
       setLoginType(location.state.role);
@@ -24,26 +21,21 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    
     try {
       const userObj = await authService.login({ email, password });
       const profile = await authService.getUserProfile(userObj.uid);
-      
-      // 2. Reroute Logic
       const actualRole = profile?.role || 'civilian';
 
       if (loginType === 'admin') {
-        // If they clicked "Admin" but their account is "Civilian", block them
         if (actualRole !== 'admin') {
           setError('Access Denied: You are not an Admin.');
           authService.logout();
           return;
         }
-        navigate('/admin'); // Admin Success -> Dashboard
+        navigate('/admin');
       } else {
-        navigate('/home'); // Civilian Success -> Reporting Camera
+        navigate('/home');
       }
-
     } catch (err) {
       console.error(err);
       setError('Invalid email or password.');
@@ -51,46 +43,59 @@ export default function Login() {
   };
 
   return (
-    <div className="p-6 max-w-md mx-auto mt-10 border rounded shadow bg-white">
-      <h2 className="text-2xl font-bold mb-2 text-center">Login</h2>
-      <p className="text-center text-gray-500 mb-6">
-        Logging in as <span className="font-bold uppercase text-blue-600">{loginType}</span>
-      </p>
+    <div className="app-container" style={{ justifyContent: 'center' }}>
+      <div className="auth-page">
+        <h2 className="text-center">Login</h2>
+        <p className="text-center" style={{ marginBottom: '1.5rem', color: '#666' }}>
+          Portal Access: <strong>{loginType.toUpperCase()}</strong>
+        </p>
 
-      {/* Hidden button to switch back to landing page if they made a mistake */}
-      <div className="text-center mb-4">
-        <Link to="/" className="text-sm text-gray-400 hover:text-gray-600">← Wrong role? Go back</Link>
+        {error && <div className="error-text">{error}</div>}
+        
+        <form onSubmit={handleSubmit}>
+          {/* Email Group */}
+          <div className="form-group">
+            <label className="form-label">Email Address</label>
+            <input 
+              type="email" 
+              value={email} 
+              onChange={(e) => setEmail(e.target.value)} 
+              className="form-input" 
+              required
+              placeholder="name@example.com"
+            />
+          </div>
+
+          {/* Password Group */}
+          <div className="form-group">
+             <label className="form-label">Password</label>
+            <input 
+              type="password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              className="form-input" 
+              required
+              placeholder="Enter your password"
+            />
+          </div>
+
+          <div className="form-actions">
+            <button 
+              type="submit" 
+              className="btn btn--primary btn-block"
+            >
+              Login
+            </button>
+          </div>
+        </form>
+        
+        <div className="form-footer">
+          <p>Don't have an account? <Link to="/signup">Sign up here</Link></p>
+          <div style={{ marginTop: '0.5rem' }}>
+            <Link to="/" style={{ fontSize: '0.8rem', color: '#999', textDecoration: 'none' }}>← Back to Selection</Link>
+          </div>
+        </div>
       </div>
-
-      {error && <div className="mb-4 p-2 bg-red-100 text-red-600 rounded text-sm text-center">{error}</div>}
-      
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Email</label>
-          <input 
-            type="email" value={email} onChange={(e) => setEmail(e.target.value)} 
-            className="w-full p-2 border rounded mt-1" required
-          />
-        </div>
-        <div>
-           <label className="block text-sm font-medium text-gray-700">Password</label>
-          <input 
-            type="password" value={password} onChange={(e) => setPassword(e.target.value)} 
-            className="w-full p-2 border rounded mt-1" required
-          />
-        </div>
-
-        <button 
-          type="submit" 
-          className={`w-full py-2 px-4 text-white font-bold rounded ${loginType === 'admin' ? 'bg-gray-800 hover:bg-black' : 'bg-blue-600 hover:bg-blue-700'}`}
-        >
-          Login
-        </button>
-      </form>
-      
-      <p className="mt-4 text-sm text-center">
-        Don't have an account? <Link to="/signup" className="text-blue-600 underline">Sign up</Link>
-      </p>
     </div>
   );
 }

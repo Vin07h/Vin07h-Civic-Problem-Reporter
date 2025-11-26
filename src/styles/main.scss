@@ -2,44 +2,103 @@
 @use 'base/typography';
 @use 'components/buttons';
 @use 'components/spinner';
+@use 'components/forms';
 @use 'home';
 @use 'report-review';
+@use 'components/landing';
+// --- Global Reset & Base Styles ---
 
-// Global body styles
 body {
     font-family: $font-family-sans;
     background-color: $color-background;
-    color: $color-text-secondary;
+    color: $color-text-primary;
     margin: 0;
-    line-height: 1.5;
-    box-sizing: border-box;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3 {
-    color: $color-text-primary;
+h1, h2, h3, h4 {
+    color: $color-primary;
+    margin-top: 0;
+    margin-bottom: $spacing-md;
     font-weight: $font-weight-bold;
 }
 
+h1 { font-size: 2rem; }
+h2 { font-size: 1.5rem; border-bottom: 2px solid $color-border; padding-bottom: $spacing-xs; }
+
+a {
+    color: $color-primary;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    
+    &:hover {
+        color: $color-primary-dark;
+        text-decoration-thickness: 2px;
+    }
+
+    &:focus {
+        outline: 3px solid $color-focus;
+        background-color: $color-focus;
+        color: $color-text-primary;
+        text-decoration: none;
+    }
+}
+
+// --- Layout Containers ---
+
 .app-container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.main-content {
+    flex: 1;
+    width: 100%;
+    max-width: $container-width;
+    margin: 0 auto;
     padding: $spacing-md;
 }
 
-.app-header {
-    text-align: center;
-    margin-bottom: $spacing-lg;
-}
-
-// A general-purpose card style for consistent UI
+// --- Component: Card ---
+// Used for Login, Forms, and Dashboard wrappers
 .card {
     background-color: $color-surface;
+    border: 1px solid $color-border;
     border-radius: $border-radius;
-    box-shadow: $box-shadow;
     padding: $spacing-lg;
-    text-align: center;
+    margin-bottom: $spacing-lg;
+    // Remove heavy shadows for a cleaner, flatter look
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
+// --- Utility Classes ---
+.text-center { text-align: center; }
+.mt-4 { margin-top: $spacing-md; }
+.mb-4 { margin-bottom: $spacing-md; }
+.full-width { width: 100%; }
+
 .error-text {
-    color: $color-danger;
-    font-size: 0.9rem;
-    margin-top: $spacing-md;
+    background-color: #FDF2F2;
+    border-left: 5px solid $color-danger;
+    color: #912B2B;
+    padding: $spacing-md;
+    font-weight: 500;
+    margin: $spacing-md 0;
+}
+
+// --- Button Groups ---
+.btn-group {
+  display: flex;
+  gap: $spacing-md; 
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: $spacing-md;
+}
+
+.btn-block {
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }

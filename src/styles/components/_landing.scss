@@ -1,0 +1,60 @@
+@use '../variables' as *;
+
+.landing-page {
+  padding: $spacing-xl 0;
+  text-align: center;
+  max-width: 800px; // Limit width so cards don't get too wide
+  margin: 0 auto;
+
+  h1 {
+    color: $color-primary;
+    margin-bottom: $spacing-xs;
+  }
+
+  .subtitle {
+    font-size: 1.2rem;
+    color: $color-text-secondary;
+    margin-bottom: $spacing-xl;
+  }
+}
+
+.portal-grid {
+  display: flex;
+  flex-wrap: wrap; // Allows stacking on mobile
+  gap: 2rem;       // Enforces 32px space between cards
+  justify-content: center;
+  width: 100%;
+}
+
+.portal-card {
+  flex: 1;
+  min-width: 280px; // Prevents them from getting too skinny
+  background-color: $color-surface;
+  border: 1px solid $color-border;
+  border-radius: $border-radius;
+  padding: $spacing-lg;
+  text-align: left;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+
+  // Add a top border color to distinguish roles
+  &.civilian-card { border-top: 5px solid $color-primary; }
+  &.admin-card { border-top: 5px solid $color-text-secondary; }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+
+  h3 {
+    margin-top: 0;
+    color: $color-text-primary;
+  }
+
+  p {
+    flex-grow: 1; // Pushes button to bottom
+    color: $color-text-secondary;
+    margin-bottom: 1.5rem;
+  }
+}

@@ -1,25 +1,40 @@
 // Path: src/styles/_variables.scss
 
-// Colors
-$color-primary: #005A9C; // A professional, trustworthy blue
-$color-secondary: #2E8540; // A friendly green for success/accent
-$color-text-primary: #212529; // Darker text for headings
-$color-text-secondary: #495057; // Lighter text for paragraphs
-$color-background: #F8F9FA; // Light gray background
-$color-surface: #FFFFFF; // White for cards and surfaces
-$color-border: #DEE2E6; // Light gray for borders
-$color-danger: #DC3545; // Red for errors
+// --- Government Design System Palette ---
+
+// Primary Brand (Federal Blue)
+$color-primary: #003366; 
+$color-primary-dark: #002244;
+$color-primary-light: #E8F0F7;
+
+// Accents & Feedback
+$color-focus: #FFD100; // High contrast focus ring (Accessibility requirement)
+$color-danger: #D8000C;
+$color-success: #00703C;
+$color-warning: #FFBF47;
+
+// Neutrals
+$color-text-primary: #1B1B1B; // Almost black, softer than #000
+$color-text-secondary: #505A5F;
+$color-border: #BFC1C2;
+$color-background: #F0F2F5; // Light grey, prevents eye strain
+$color-surface: #FFFFFF;
 
 // Typography
-$font-family-sans: 'Inter', sans-serif; // Or another modern sans-serif
+$font-family-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 $font-size-base: 16px;
+$font-size-lg: 1.125rem;
+$font-size-sm: 0.875rem;
+
 $font-weight-normal: 400;
 $font-weight-bold: 700;
 
-// Spacing
-$spacing-md: 1rem; // 16px
-$spacing-lg: 2rem; // 32px
+// Layout & Spacing
+$spacing-xs: 0.5rem;
+$spacing-md: 1rem;
+$spacing-lg: 2rem;
+$spacing-xl: 4rem;
 
-// Layout
-$border-radius: 8px;
-$box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+$border-radius: 4px; // Government sites use sharper, authoritative corners
+$box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+$container-width: 960px;
