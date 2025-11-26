@@ -21,7 +21,7 @@ const Landing = () => {
         <div className="portal-card civilian-card">
           <h3>Civilian</h3>
           <p>
-            Report infrastructure issues like potholes, garbage, or street lights to your local municipality.
+            Report infrastructure issues like potholes, or garbage to your local municipality.
           </p>
           <Button onClick={() => handleSelection('civilian')} variant="primary" className="btn-block">
             Civilian Login
