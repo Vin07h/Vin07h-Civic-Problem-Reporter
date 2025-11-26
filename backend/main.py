@@ -18,21 +18,38 @@ from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.concurrency import run_in_threadpool
 from ultralytics import YOLO
+# Import internal loader so we can reload models without fusing if necessary
+try:
+    from ultralytics.nn.tasks import load_checkpoint
+except Exception:
+    load_checkpoint = None
 
 # --- API Keys and Configs ---
 load_dotenv()
 
-GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
-FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
+# Helper to read env vars and tolerate common formatting issues (quotes, surrounding spaces)
+def getenv_clean(key, default=None):
+    v = os.getenv(key)
+    if v is None:
+        return default
+    v = v.strip()
+    # Strip surrounding quotes if present
+    if (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
+        v = v[1:-1]
+    return v
+
+GOOGLE_MAPS_API_KEY = getenv_clean("GOOGLE_MAPS_API_KEY")
+FRONTEND_ORIGIN = getenv_clean("FRONTEND_ORIGIN") or "http://localhost:5173"
 
 cloudinary.config(
-    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
-    api_key=os.getenv("CLOUDINARY_API_KEY"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET")
+    cloud_name=getenv_clean("CLOUDINARY_CLOUD_NAME"),
+    api_key=getenv_clean("CLOUDINARY_API_KEY"),
+    api_secret=getenv_clean("CLOUDINARY_API_SECRET")
 )
 
-ATLAS_URI = os.getenv("ATLAS_URI")
-DB_NAME = os.getenv("DB_NAME")
+ATLAS_URI = getenv_clean("ATLAS_URI")
+# Accept multiple key casings used by various .env files (DB_NAME, DB_name)
+DB_NAME = getenv_clean("DB_NAME") or getenv_clean("DB_name") or getenv_clean("DB")
 try:
     mongo_client = MongoClient(ATLAS_URI)
     db = mongo_client[DB_NAME]
@@ -108,6 +125,18 @@ class CVInferenceService:
             return None
         try:
             model = YOLO(path)
+            # Prevent ultralytics from attempting to fuse Conv+BatchNorm layers
+            # for models that don't expose a BN attribute on Conv instances.
+            # We patch `fuse` to a no-op so downstream code won't attempt fusion.
+            try:
+                if hasattr(model, "fuse"):
+                    model.fuse = lambda verbose=True: model
+                if hasattr(model, "model") and hasattr(model.model, "fuse"):
+                    model.model.fuse = lambda verbose=True: model.model
+            except Exception:
+                # If monkey-patching fails, continue — we will handle errors at inference time
+                pass
+
             print(f"{model_name} model loaded successfully from {path}")
             return model
         except Exception as e:
@@ -159,6 +188,22 @@ class CVInferenceService:
                 all_detections.extend(self._process_results(pothole_results))
             except Exception as e:
                 print(f"Error during pothole inference: {e}")
+                # If the error looks like a Conv/Bn fusion problem, try reloading without fusion and retry once
+                if "bn" in str(e).lower() or "batchnorm" in str(e).lower() or "'conv' object has no attribute 'bn'" in str(e).lower():
+                    print("Attempting to reload pothole model without fusion and retry inference...")
+                    try:
+                        if load_checkpoint:
+                            loaded, _ = load_checkpoint(self.POTHOLE_MODEL_PATH, fuse=False)
+                            # Replace the model and retry prediction
+                            self.model_pothole = loaded
+                            pothole_results = self.model_pothole.predict(
+                                source=image, conf=self.CONFIDENCE_THRESHOLD, iou=self.IOU_THRESHOLD, verbose=False, imgsz=640
+                            )
+                            all_detections.extend(self._process_results(pothole_results))
+                        else:
+                            print("load_checkpoint not available in this ultralytics installation; cannot reload without fusion.")
+                    except Exception as e2:
+                        print(f"Retry without fusion also failed: {e2}")
         else:
             print("Pothole model not loaded, skipping.")
         if self.model_garbage:
@@ -169,6 +214,20 @@ class CVInferenceService:
                 all_detections.extend(self._process_results(garbage_results))
             except Exception as e:
                 print(f"Error during garbage inference: {e}")
+                if "bn" in str(e).lower() or "batchnorm" in str(e).lower() or "'conv' object has no attribute 'bn'" in str(e).lower():
+                    print("Attempting to reload garbage model without fusion and retry inference...")
+                    try:
+                        if load_checkpoint:
+                            loaded, _ = load_checkpoint(self.GARBAGE_MODEL_PATH, fuse=False)
+                            self.model_garbage = loaded
+                            garbage_results = self.model_garbage.predict(
+                                source=image, conf=self.CONFIDENCE_THRESHOLD, iou=self.IOU_THRESHOLD, verbose=False, imgsz=640
+                            )
+                            all_detections.extend(self._process_results(garbage_results))
+                        else:
+                            print("load_checkpoint not available in this ultralytics installation; cannot reload without fusion.")
+                    except Exception as e2:
+                        print(f"Retry without fusion also failed: {e2}")
         else:
             print("Garbage model not loaded, skipping.")
         return all_detections
@@ -207,19 +266,33 @@ async def get_ward_from_coords(lat: float, lon: float):
 app = FastAPI()
 cv_service = CVInferenceService()
 
-origins = [
-    FRONTEND_ORIGIN,
-    "http://127.0.0.1:5173",
-    "http://localhost:5173",
-    "http://localhost:5174"
-]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# For local development allow the frontend origins; if you need a quick
+# development bypass set DEV_ALLOW_ALL_ORIGINS=true in your env to allow '*'.
+DEV_ALLOW_ALL = getenv_clean("DEV_ALLOW_ALL_ORIGINS", "false").lower() == "true"
+if DEV_ALLOW_ALL:
+    print("Warning: DEV_ALLOW_ALL_ORIGINS=true -> allowing all CORS origins (development only)")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    origins = [
+        FRONTEND_ORIGIN,
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "http://127.0.0.1:5174",
+        "http://localhost:5174",
+    ]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # --- API Endpoints ---
 @app.get("/")
