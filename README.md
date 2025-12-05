@@ -66,7 +66,38 @@ The application follows a bidirectional workflow:
 
 ## 🚀 Installation & Setup
 
+
 ### 1. Clone the Repository
 ```bash
 git clone [https://github.com/Vin07h/Vin07h-Civic-Problem-Reporter.git](https://github.com/Vin07h/Vin07h-Civic-Problem-Reporter.git)
 cd Vin07h-Civic-Problem-Reporter
+
+2. Install Dependencies
+Backend:
+
+Bash
+
+cd backend
+npm install  # or pip install -r requirements.txt
+Frontend:
+
+Bash
+
+cd frontend
+npm install
+3. Configure Environment
+Create a .env file and add your credentials:
+
+Code snippet
+
+DB_URL=your_database_url
+API_KEY=your_map_api_key
+SECRET_KEY=your_jwt_secret
+4. Run the App
+Bash
+
+# Terminal 1 (Backend)
+cd backend && npm start
+
+# Terminal 2 (Frontend)
+cd frontend && npm start
