@@ -1,25 +1,25 @@
-# 📢 Civic Problem Reporter
+# Civic Problem Reporter
 
 **A full-stack application connecting citizens with local authorities to solve civic issues efficiently.**
 
 ![Project Status](https://img.shields.io/badge/Status-Active-brightgreen)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 
-## 📖 Overview
+## Overview
 
 The **Civic Problem Reporter** is a digital platform designed to bridge the gap between citizens and local authorities. It empowers users to report civic issues (such as potholes, uncollected garbage, or broken streetlights) in real-time, ensuring that problems are brought to the attention of the correct departments for swift resolution.
 
 ---
 
-## ✨ Key Features
+##  Key Features
 
-### 👤 For Citizens (Users)
+###  For Citizens (Users)
 * **Easy Reporting:** Submit issues with a title, description, and photo.
 * **Geo-Tagging:** Automatically captures the location (Latitude/Longitude) of the issue.
 * **Real-time Tracking:** View the status of reported issues (e.g., *Pending, In Progress, Resolved*).
 * **History:** Access a personal dashboard of past submissions.
 
-### 👮 For Authorities (Admins)
+###  For Authorities (Admins)
 * **Admin Dashboard:** A centralized view of all incoming reports.
 * **Status Management:** Update the status of issues as they are processed.
 * **Filter & Sort:** Organize reports by urgency, date, or location.
@@ -27,7 +27,7 @@ The **Civic Problem Reporter** is a digital platform designed to bridge the gap 
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 **Frontend:**
 * [React.js / Next.js]
@@ -46,7 +46,7 @@ The **Civic Problem Reporter** is a digital platform designed to bridge the gap 
 
 ---
 
-## 🔄 Workflow
+##  Workflow
 
 The application follows a bidirectional workflow:
 
@@ -64,7 +64,7 @@ The application follows a bidirectional workflow:
 
 ---
 
-## 🚀 Installation & Setup
+##  Installation & Setup
 
 
 ### 1. Clone the Repository
